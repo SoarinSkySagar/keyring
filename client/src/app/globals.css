@@ -1,0 +1,259 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-syne);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Keyring brand tokens */
+  --color-amber: var(--kr-amber);
+  --color-amber-glow: var(--kr-amber-glow);
+  --color-teal: var(--kr-teal);
+  --color-teal-glow: var(--kr-teal-glow);
+  --color-surface: var(--kr-surface);
+  --color-surface-2: var(--kr-surface-2);
+}
+
+/* ── Dark mode (default) ──────────────────────────────────────── */
+:root {
+  --background: #07070d;
+  --foreground: #f0ede8;
+  --card: #0f0f1c;
+  --card-foreground: #f0ede8;
+  --popover: #0f0f1c;
+  --popover-foreground: #f0ede8;
+  --primary: #e8a835;
+  --primary-foreground: #07070d;
+  --secondary: #1a1a2e;
+  --secondary-foreground: #f0ede8;
+  --muted: #1a1a2e;
+  --muted-foreground: #7a7985;
+  --accent: #1e1e30;
+  --accent-foreground: #f0ede8;
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: rgba(255, 255, 255, 0.07);
+  --input: rgba(255, 255, 255, 0.09);
+  --ring: #e8a835;
+  --chart-1: #e8a835;
+  --chart-2: #00d4b4;
+  --chart-3: #7c6dd8;
+  --chart-4: #e87e35;
+  --chart-5: #35a8e8;
+  --radius: 0.5rem;
+  --sidebar: #0f0f1c;
+  --sidebar-foreground: #f0ede8;
+  --sidebar-primary: #e8a835;
+  --sidebar-primary-foreground: #07070d;
+  --sidebar-accent: #1a1a2e;
+  --sidebar-accent-foreground: #f0ede8;
+  --sidebar-border: rgba(255, 255, 255, 0.07);
+  --sidebar-ring: #e8a835;
+
+  /* Keyring brand */
+  --kr-amber: #e8a835;
+  --kr-amber-glow: rgba(232, 168, 53, 0.15);
+  --kr-teal: #00d4b4;
+  --kr-teal-glow: rgba(0, 212, 180, 0.1);
+  --kr-surface: #0f0f1c;
+  --kr-surface-2: #16162a;
+  --kr-dot-color: rgba(240, 237, 232, 0.055);
+}
+
+/* ── Light mode ───────────────────────────────────────────────── */
+.light {
+  --background: #f5f3ee;
+  --foreground: #1a1812;
+  --card: #ffffff;
+  --card-foreground: #1a1812;
+  --popover: #ffffff;
+  --popover-foreground: #1a1812;
+  --primary: #b87200;
+  --primary-foreground: #ffffff;
+  --secondary: #ede9e0;
+  --secondary-foreground: #1a1812;
+  --muted: #ede9e0;
+  --muted-foreground: #6a6660;
+  --accent: #e8e2d8;
+  --accent-foreground: #1a1812;
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: rgba(0, 0, 0, 0.09);
+  --input: rgba(0, 0, 0, 0.08);
+  --ring: #b87200;
+  --chart-1: #b87200;
+  --chart-2: #007a6e;
+  --chart-3: #5a4db8;
+  --chart-4: #b85e00;
+  --chart-5: #006eb8;
+  --sidebar: #ede9e0;
+  --sidebar-foreground: #1a1812;
+  --sidebar-primary: #b87200;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e8e2d8;
+  --sidebar-accent-foreground: #1a1812;
+  --sidebar-border: rgba(0, 0, 0, 0.09);
+  --sidebar-ring: #b87200;
+
+  /* Keyring brand */
+  --kr-amber: #b87200;
+  --kr-amber-glow: rgba(184, 114, 0, 0.12);
+  --kr-teal: #007a6e;
+  --kr-teal-glow: rgba(0, 122, 110, 0.1);
+  --kr-surface: #ffffff;
+  --kr-surface-2: #ede9e0;
+  --kr-dot-color: rgba(26, 24, 18, 0.07);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+    scroll-behavior: smooth;
+  }
+}
+
+/* ── Keyring dot-grid background ─────────────────────────────── */
+.kr-dot-grid {
+  background-image: radial-gradient(
+    circle,
+    var(--kr-dot-color) 1px,
+    transparent 1px
+  );
+  background-size: 32px 32px;
+}
+
+/* ── Floating shape animations ───────────────────────────────── */
+@keyframes kr-float-a {
+  0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0.15; }
+  33%       { transform: translateY(-18px) rotate(8deg); opacity: 0.25; }
+  66%       { transform: translateY(6px) rotate(-4deg); opacity: 0.18; }
+}
+@keyframes kr-float-b {
+  0%, 100% { transform: translateY(-8px) rotate(-6deg); opacity: 0.12; }
+  50%       { transform: translateY(12px) rotate(6deg); opacity: 0.22; }
+}
+@keyframes kr-float-c {
+  0%, 100% { transform: translateY(0px) rotate(12deg); opacity: 0.1; }
+  40%       { transform: translateY(-24px) rotate(-2deg); opacity: 0.2; }
+  80%       { transform: translateY(8px) rotate(18deg); opacity: 0.13; }
+}
+@keyframes kr-pulse-ring {
+  0%   { transform: scale(1); opacity: 0.4; }
+  70%  { transform: scale(1.6); opacity: 0; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+@keyframes kr-shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.kr-float-a { animation: kr-float-a 9s ease-in-out infinite; }
+.kr-float-b { animation: kr-float-b 11s ease-in-out infinite; }
+.kr-float-c { animation: kr-float-c 7s ease-in-out infinite; }
+
+/* ── Scroll-reveal ───────────────────────────────────────────── */
+.kr-reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.kr-reveal.in-view {
+  opacity: 1;
+  transform: translateY(0);
+}
+.kr-reveal-delay-1 { transition-delay: 0.1s; }
+.kr-reveal-delay-2 { transition-delay: 0.2s; }
+.kr-reveal-delay-3 { transition-delay: 0.3s; }
+.kr-reveal-delay-4 { transition-delay: 0.4s; }
+.kr-reveal-delay-5 { transition-delay: 0.5s; }
+.kr-reveal-delay-6 { transition-delay: 0.6s; }
+
+/* ── Amber shimmer text effect ───────────────────────────────── */
+.kr-text-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--kr-amber) 0%,
+    #fcd87a 40%,
+    var(--kr-amber) 80%
+  );
+  background-size: 400px 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: kr-shimmer 4s linear infinite;
+}
+
+/* ── Gradient border card ────────────────────────────────────── */
+.kr-gradient-border {
+  position: relative;
+}
+.kr-gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--kr-amber-glow), transparent 60%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box,
+                linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ── Pulse ring ──────────────────────────────────────────────── */
+.kr-pulse-ring::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px solid var(--kr-amber);
+  animation: kr-pulse-ring 2.5s ease-out infinite;
+}
