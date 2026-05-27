@@ -183,7 +183,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers,
   callbacks: {
     ...authConfig.callbacks,
-    jwt({ token, user }) {
+    jwt({ token, user, account }) {
       if (user) {
         token.id = user.id;
         token.email = user.email;
@@ -192,10 +192,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.exp = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
         }
       }
+      // Capture provider + wallet address on first sign-in (account is only present then)
+      if (account) {
+        token.provider = account.provider; // "credentials" | "google" | "metamask"
+        if (account.provider === "metamask") {
+          token.walletAddress = account.providerAccountId; // lowercase hex address
+        }
+      }
       return token;
     },
     session({ session, token }) {
       if (token.id) session.user.id = token.id as string;
+      if (token.provider) session.user.provider = token.provider as string;
+      if (token.walletAddress) session.user.walletAddress = token.walletAddress as string;
       return session;
     },
   },

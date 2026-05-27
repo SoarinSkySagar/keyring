@@ -14,9 +14,19 @@ import { LogOut, Settings } from "lucide-react";
 export async function DashboardHeader({ title }: { title: string }) {
   const session = await auth();
   const user = session?.user;
-  const initials = user?.email
-    ? user.email.slice(0, 2).toUpperCase()
-    : "?";
+
+  // Display name depends on auth method
+  const displayName = (() => {
+    if (user?.provider === "metamask" && user.walletAddress) {
+      // Shorten wallet address: 0x1234…abcd
+      const addr = user.walletAddress;
+      return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+    }
+    if (user?.provider === "google" && user.name) return user.name;
+    return user?.email ?? "Account";
+  })();
+
+  const initials = displayName.slice(0, 2).toUpperCase();
 
   return (
     <header className="h-16 border-b border-border bg-background/80 backdrop-blur-sm flex items-center justify-between px-6 sticky top-0 z-30">
@@ -33,14 +43,14 @@ export async function DashboardHeader({ title }: { title: string }) {
         >
           <div className="text-right hidden sm:block">
             <p className="text-sm font-medium text-foreground leading-tight">
-              {user?.email ?? "Account"}
+              {displayName}
             </p>
             <p className="text-xs text-muted-foreground leading-tight">
               {user?.email}
             </p>
           </div>
           <Avatar className="w-8 h-8 border border-border">
-            <AvatarImage src={user?.image ?? ""} alt={user?.email ?? ""} />
+            <AvatarImage src={user?.image ?? ""} alt={displayName} />
             <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
               {initials}
             </AvatarFallback>
