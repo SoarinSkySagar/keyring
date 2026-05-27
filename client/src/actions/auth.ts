@@ -152,6 +152,116 @@ export async function signInWithMetaMaskAction(
   return {};
 }
 
+// ── Password reset ────────────────────────────────────────────────
+
+/**
+ * Step 1: send OTP for password reset.
+ * Only works for email/password accounts (not Google/MetaMask).
+ * Always returns success=true for non-existent emails (prevents enumeration).
+ */
+export async function sendPasswordResetOTPAction(
+  email: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const existing = await db.query.users.findFirst({
+      where: eq(users.email, email),
+    });
+
+    if (!existing) {
+      // Silently succeed to prevent email enumeration
+      return { success: true };
+    }
+    if (!existing.passwordHash) {
+      return {
+        success: false,
+        error: "This account uses Google or MetaMask sign-in — there is no password to reset.",
+      };
+    }
+
+    const code = generateOTP();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+
+    await db.delete(otpCodes).where(eq(otpCodes.email, email));
+    await db.insert(otpCodes).values({ email, code, expiresAt });
+    await sendOTPEmail(email, code);
+
+    return { success: true };
+  } catch (err) {
+    console.error("[sendPasswordResetOTPAction]", err);
+    return { success: false, error: "Failed to send code. Please try again." };
+  }
+}
+
+/**
+ * Step 2: verify OTP without consuming it.
+ * Lets the UI confirm the code is correct before showing the new-password form.
+ */
+export async function verifyResetOTPAction(
+  email: string,
+  otp: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const stored = await db.query.otpCodes.findFirst({
+      where: and(eq(otpCodes.email, email), gt(otpCodes.expiresAt, new Date())),
+    });
+    if (!stored || stored.code !== otp) {
+      return { ok: false, error: "Invalid or expired code." };
+    }
+    return { ok: true };
+  } catch (err) {
+    console.error("[verifyResetOTPAction]", err);
+    return { ok: false, error: "Something went wrong. Please try again." };
+  }
+}
+
+/**
+ * Step 3: consume OTP, update password hash, auto sign-in.
+ */
+export async function resetPasswordAction(
+  email: string,
+  otp: string,
+  newPassword: string
+): Promise<{ error?: string }> {
+  try {
+    // Final OTP check
+    const stored = await db.query.otpCodes.findFirst({
+      where: and(eq(otpCodes.email, email), gt(otpCodes.expiresAt, new Date())),
+    });
+    if (!stored || stored.code !== otp) {
+      return { error: "Code expired. Please start over." };
+    }
+
+    // Consume OTP
+    await db.delete(otpCodes).where(eq(otpCodes.id, stored.id));
+
+    // Update password
+    const passwordHash = await hash(newPassword, 12);
+    await db.update(users).set({ passwordHash }).where(eq(users.email, email));
+
+    // Auto sign-in: issue a fresh short-lived OTP and sign in immediately
+    const tempCode = generateOTP();
+    await db.insert(otpCodes).values({
+      email,
+      code: tempCode,
+      passwordHash: null,
+      expiresAt: new Date(Date.now() + 2 * 60 * 1000), // 2 min
+    });
+
+    await signIn("credentials", {
+      email,
+      otp: tempCode,
+      password: newPassword,
+      redirectTo: "/dashboard",
+    });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return { error: "Sign-in after reset failed. Please log in with your new password." };
+    }
+    throw error; // Re-throw NEXT_REDIRECT
+  }
+  return {};
+}
+
 // ── Sign out ──────────────────────────────────────────────────────
 
 export async function signOutAction() {
