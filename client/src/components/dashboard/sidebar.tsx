@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   KeyRound,
-  ScrollText,
-  Settings,
+  Lock,
+  Users,
   ArrowLeft,
   LogOut,
 } from "lucide-react";
@@ -15,9 +15,9 @@ import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
-  { href: "/dashboard/grants", label: "Grants", icon: KeyRound },
-  { href: "/dashboard/audit", label: "Audit Log", icon: ScrollText },
-  { href: "/dashboard/settings", label: "Settings", icon: Settings },
+  { href: "/dashboard/secrets", label: "Secrets", icon: KeyRound },
+  { href: "/dashboard/authorization", label: "Authorization", icon: Lock },
+  { href: "/dashboard/access", label: "Access", icon: Users },
 ];
 
 export function Sidebar() {
@@ -64,11 +64,6 @@ export function Sidebar() {
                 strokeWidth={1.8}
               />
               {label}
-              {label === "Grants" && (
-                <span className="ml-auto text-[10px] font-medium bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">
-                  5
-                </span>
-              )}
             </Link>
           );
         })}
