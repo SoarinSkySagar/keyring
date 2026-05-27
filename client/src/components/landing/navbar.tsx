@@ -1,12 +1,15 @@
 "use client";
 
 import { useTheme } from "next-themes";
+import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
-import { Sun, Moon, KeyRound } from "lucide-react";
+import { Sun, Moon, KeyRound, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export function Navbar() {
   const { theme, setTheme } = useTheme();
+  const { data: session, status } = useSession();
   const [mounted, setMounted] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -16,6 +19,8 @@ export function Navbar() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  const isLoggedIn = status === "authenticated" && !!session;
 
   return (
     <header
@@ -27,8 +32,8 @@ export function Navbar() {
     >
       <nav className="mx-auto max-w-6xl px-6 h-16 flex items-center justify-between">
         {/* Logo */}
-        <div className="flex items-center gap-2.5">
-          <div className="relative flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 border border-primary/20">
+        <Link href="/" className="flex items-center gap-2.5 group">
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 group-hover:bg-primary/15 transition-colors">
             <KeyRound className="w-4 h-4 text-primary" strokeWidth={1.8} />
           </div>
           <span
@@ -37,7 +42,7 @@ export function Navbar() {
           >
             Keyring
           </span>
-        </div>
+        </Link>
 
         {/* Center nav links */}
         <div className="hidden md:flex items-center gap-7">
@@ -68,12 +73,30 @@ export function Navbar() {
               )}
             </button>
           )}
-          <Button
-            size="sm"
-            className="bg-primary text-primary-foreground hover:bg-primary/90 font-medium text-sm px-4 h-9"
-          >
-            Join Waitlist
-          </Button>
+
+          {/* Auth button — shows after hydration */}
+          {!mounted || status === "loading" ? (
+            <div className="h-9 w-28 rounded-md bg-muted animate-pulse" />
+          ) : isLoggedIn ? (
+            <Button
+              render={<Link href="/dashboard" />}
+              nativeButton={false}
+              size="sm"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 font-medium text-sm px-4 h-9"
+            >
+              <LayoutDashboard className="w-3.5 h-3.5 mr-1.5" />
+              Dashboard
+            </Button>
+          ) : (
+            <Button
+              render={<Link href="/login" />}
+              nativeButton={false}
+              size="sm"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 font-medium text-sm px-4 h-9"
+            >
+              Sign In
+            </Button>
+          )}
         </div>
       </nav>
     </header>
