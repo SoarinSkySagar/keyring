@@ -6,14 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
-// Hardcoded demo credentials — replace with real API call (TODO)
+// Replace with real API call
 const DEMO_CREDENTIALS = {
-  apiKey: "kr_live_9xKp2mN7wRt8qL1yBv4hD5nCm9kF3pXs5eA8",
-  secretToken: "kr_secret_3wRt8qL1yBv4hD5nCm9kF3pXs5eA8zQt6bW0",
-  connectionUrl: "https://api.keyring.sh/v1/connect/wksp_7pXs5eA8zQt6bW",
+  apiKey: "",
+  secretToken: "",
+  connectionUrl: "",
 };
 
-// Hardcoded demo rate limits — replace with real API call (TODO)
+// Replace with real API call (defaults shown until backend connected)
 const DEMO_RATE_LIMITS = {
   perMinute: 60,
   perHour: 1000,
@@ -53,6 +53,13 @@ function MaskedValue({
   value: string;
   showLength?: number;
 }) {
+  if (!value) {
+    return (
+      <span className="font-mono text-sm text-muted-foreground italic">
+        Not yet generated
+      </span>
+    );
+  }
   const prefix = value.slice(0, showLength);
   const suffix = value.slice(-4);
   return (
@@ -103,25 +110,35 @@ export function AuthorizationContent() {
           >
             Credentials
           </h3>
-          <span className="ml-auto text-[10px] font-mono font-semibold uppercase tracking-wider text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
-            Active
+          <span
+            className={`ml-auto text-[10px] font-mono font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+              DEMO_CREDENTIALS.apiKey
+                ? "text-emerald-500 bg-emerald-500/10 border border-emerald-500/20"
+                : "text-muted-foreground bg-muted border border-border"
+            }`}
+          >
+            {DEMO_CREDENTIALS.apiKey ? "Active" : "Not configured"}
           </span>
         </div>
 
         <div className="divide-y divide-border">
           {/* API Key */}
           <div className="px-5 py-4">
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
                   API Key
                 </p>
-                <div className="flex items-center gap-2 bg-muted/50 border border-border rounded-lg px-3 py-2">
-                  <MaskedValue
-                    value={DEMO_CREDENTIALS.apiKey}
-                    showLength={12}
-                  />
-                  <CopyButton value={DEMO_CREDENTIALS.apiKey} />
+                <div className="flex items-center gap-2 bg-muted/50 border border-border rounded-lg px-3 py-2 min-w-0">
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <MaskedValue
+                      value={DEMO_CREDENTIALS.apiKey}
+                      showLength={12}
+                    />
+                  </div>
+                  {DEMO_CREDENTIALS.apiKey && (
+                    <CopyButton value={DEMO_CREDENTIALS.apiKey} />
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1.5">
                   Use this as the{" "}
@@ -131,11 +148,11 @@ export function AuthorizationContent() {
                   header in all requests.
                 </p>
               </div>
-              <div className="pt-5">
+              <div className="sm:pt-5">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-1.5 shrink-0"
+                  className="gap-1.5 shrink-0 w-full sm:w-auto"
                   onClick={() => {
                     // TODO: call API to regenerate key
                     toast.success("API key regenerated (demo — not actually changed)");
@@ -150,28 +167,32 @@ export function AuthorizationContent() {
 
           {/* Secret Token */}
           <div className="px-5 py-4">
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
                   Secret Token
                 </p>
-                <div className="flex items-center gap-2 bg-muted/50 border border-border rounded-lg px-3 py-2">
-                  <MaskedValue
-                    value={DEMO_CREDENTIALS.secretToken}
-                    showLength={12}
-                  />
-                  <CopyButton value={DEMO_CREDENTIALS.secretToken} />
+                <div className="flex items-center gap-2 bg-muted/50 border border-border rounded-lg px-3 py-2 min-w-0">
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <MaskedValue
+                      value={DEMO_CREDENTIALS.secretToken}
+                      showLength={12}
+                    />
+                  </div>
+                  {DEMO_CREDENTIALS.secretToken && (
+                    <CopyButton value={DEMO_CREDENTIALS.secretToken} />
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1.5">
                   Use this alongside the API key for webhook signature
                   verification.
                 </p>
               </div>
-              <div className="pt-5">
+              <div className="sm:pt-5">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-1.5 shrink-0"
+                  className="gap-1.5 shrink-0 w-full sm:w-auto"
                   onClick={() => {
                     // TODO: call API to regenerate secret token
                     toast.success("Secret token regenerated (demo — not actually changed)");
@@ -194,10 +215,18 @@ export function AuthorizationContent() {
                 className="w-3.5 h-3.5 text-muted-foreground shrink-0"
                 strokeWidth={1.8}
               />
-              <span className="font-mono text-sm text-foreground truncate flex-1">
-                {DEMO_CREDENTIALS.connectionUrl}
-              </span>
-              <CopyButton value={DEMO_CREDENTIALS.connectionUrl} />
+              {DEMO_CREDENTIALS.connectionUrl ? (
+                <>
+                  <span className="font-mono text-sm text-foreground truncate flex-1">
+                    {DEMO_CREDENTIALS.connectionUrl}
+                  </span>
+                  <CopyButton value={DEMO_CREDENTIALS.connectionUrl} />
+                </>
+              ) : (
+                <span className="font-mono text-sm text-muted-foreground italic flex-1">
+                  Not yet available
+                </span>
+              )}
             </div>
             <p className="text-xs text-muted-foreground mt-1.5">
               This is the base URL your agent should hit for all Keyring API
@@ -221,31 +250,41 @@ export function AuthorizationContent() {
           <p className="text-xs text-muted-foreground mb-3">
             Add this to your agent&apos;s environment to connect to Keyring:
           </p>
-          <div className="relative rounded-lg bg-muted/50 border border-border p-4 font-mono text-xs text-muted-foreground">
-            <CopyButton
-              value={`KEYRING_API_KEY=${DEMO_CREDENTIALS.apiKey}\nKEYRING_SECRET=${DEMO_CREDENTIALS.secretToken}\nKEYRING_URL=${DEMO_CREDENTIALS.connectionUrl}`}
-            />
-            <div className="absolute top-3 right-3" />
-            <p className="text-emerald-500"># Add to your .env file</p>
-            <p className="mt-1">
-              <span className="text-primary">KEYRING_API_KEY</span>=
-              <span className="text-foreground">
-                {DEMO_CREDENTIALS.apiKey.slice(0, 16)}••••
-              </span>
-            </p>
-            <p>
-              <span className="text-primary">KEYRING_SECRET</span>=
-              <span className="text-foreground">
-                {DEMO_CREDENTIALS.secretToken.slice(0, 16)}••••
-              </span>
-            </p>
-            <p>
-              <span className="text-primary">KEYRING_URL</span>=
-              <span className="text-foreground">
-                {DEMO_CREDENTIALS.connectionUrl}
-              </span>
-            </p>
-          </div>
+          {DEMO_CREDENTIALS.apiKey ? (
+            <div className="relative rounded-lg bg-muted/50 border border-border p-4 font-mono text-xs text-muted-foreground">
+              <div className="absolute top-3 right-3">
+                <CopyButton
+                  value={`KEYRING_API_KEY=${DEMO_CREDENTIALS.apiKey}\nKEYRING_SECRET=${DEMO_CREDENTIALS.secretToken}\nKEYRING_URL=${DEMO_CREDENTIALS.connectionUrl}`}
+                />
+              </div>
+              <p className="text-emerald-500"># Add to your .env file</p>
+              <p className="mt-1">
+                <span className="text-primary">KEYRING_API_KEY</span>=
+                <span className="text-foreground">
+                  {DEMO_CREDENTIALS.apiKey.slice(0, 16)}••••
+                </span>
+              </p>
+              <p>
+                <span className="text-primary">KEYRING_SECRET</span>=
+                <span className="text-foreground">
+                  {DEMO_CREDENTIALS.secretToken.slice(0, 16)}••••
+                </span>
+              </p>
+              <p>
+                <span className="text-primary">KEYRING_URL</span>=
+                <span className="text-foreground">
+                  {DEMO_CREDENTIALS.connectionUrl}
+                </span>
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-lg bg-muted/30 border border-dashed border-border p-5 flex flex-col items-center justify-center gap-2 text-center">
+              <p className="text-xs text-muted-foreground">
+                Credentials will appear here once your workspace is connected to
+                the Keyring backend.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

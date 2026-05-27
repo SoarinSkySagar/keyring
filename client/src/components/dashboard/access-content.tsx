@@ -36,16 +36,10 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-// Available secrets (same list as secrets vault) — TODO: fetch from API
-const AVAILABLE_SECRETS = [
-  "BINANCE_API_KEY",
-  "OPENAI_KEY",
-  "COINBASE_SECRET",
-  "AWS_SECRET_KEY",
-  "ANTHROPIC_KEY",
-];
+// Replace with real API call (fetch from secrets vault)
+const AVAILABLE_SECRETS: string[] = [];
 
-// Hardcoded demo agents — replace with real API call (TODO)
+// Replace with real API call
 type Agent = {
   id: string;
   name: string;
@@ -57,41 +51,7 @@ type Agent = {
   lastSeen: string;
 };
 
-const INITIAL_AGENTS: Agent[] = [
-  {
-    id: "agt_alpha",
-    name: "TradingBot v2",
-    agentKey: "agt_9xKp2mN7wRt8qL1yBv4hD5",
-    allowedSecrets: ["BINANCE_API_KEY", "COINBASE_SECRET"],
-    policy:
-      "This agent is a trading bot that reads market data and executes trades on Binance and Coinbase. It should only use the exchange API keys to query balances and submit limit orders. It must never withdraw funds or modify account settings.",
-    status: "active",
-    createdAt: "May 10, 2026",
-    lastSeen: "2 min ago",
-  },
-  {
-    id: "agt_beta",
-    name: "ResearchAgent",
-    agentKey: "agt_3wRt8qL1yBv4hD5nCm9kF3",
-    allowedSecrets: ["OPENAI_KEY", "ANTHROPIC_KEY"],
-    policy:
-      "This agent performs research tasks using LLM APIs. It should only use the provided keys to make text completion and embedding requests. It must not use the keys to fine-tune models or access billing information.",
-    status: "active",
-    createdAt: "May 8, 2026",
-    lastSeen: "7 min ago",
-  },
-  {
-    id: "agt_gamma",
-    name: "DataPipeline",
-    agentKey: "agt_6yBv4hD5nCm9kF3pXs5eA8",
-    allowedSecrets: ["AWS_SECRET_KEY"],
-    policy:
-      "This agent handles ETL pipelines on AWS. It can read from S3, write to DynamoDB, and trigger Lambda functions. It must not modify IAM roles or create new AWS resources.",
-    status: "inactive",
-    createdAt: "May 3, 2026",
-    lastSeen: "3 days ago",
-  },
-];
+const INITIAL_AGENTS: Agent[] = [];
 
 // ── Step indicator ─────────────────────────────────────────────────────────────
 
@@ -264,44 +224,57 @@ function CreateAgentDialog({
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-2">
                   Allowed secrets
                 </label>
-                <div className="space-y-2">
-                  {AVAILABLE_SECRETS.map((name) => {
-                    const selected = selectedSecrets.includes(name);
-                    return (
-                      <button
-                        key={name}
-                        onClick={() => toggleSecret(name)}
-                        className={cn(
-                          "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-sm font-mono transition-colors text-left",
-                          selected
-                            ? "border-primary/40 bg-primary/8 text-foreground"
-                            : "border-border bg-muted/30 text-muted-foreground hover:border-border hover:text-foreground hover:bg-muted/50"
-                        )}
-                      >
-                        <div
+                {AVAILABLE_SECRETS.length === 0 ? (
+                  <div className="flex items-center gap-2.5 p-3 rounded-lg border border-dashed border-border bg-muted/20">
+                    <KeyRound
+                      className="w-4 h-4 text-muted-foreground shrink-0"
+                      strokeWidth={1.5}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      No secrets in vault yet — add secrets first before
+                      creating an agent.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {AVAILABLE_SECRETS.map((name) => {
+                      const selected = selectedSecrets.includes(name);
+                      return (
+                        <button
+                          key={name}
+                          onClick={() => toggleSecret(name)}
                           className={cn(
-                            "flex items-center justify-center w-5 h-5 rounded border transition-colors shrink-0",
+                            "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-sm font-mono transition-colors text-left",
                             selected
-                              ? "bg-primary border-primary"
-                              : "border-border bg-transparent"
+                              ? "border-primary/40 bg-primary/8 text-foreground"
+                              : "border-border bg-muted/30 text-muted-foreground hover:border-border hover:text-foreground hover:bg-muted/50"
                           )}
                         >
-                          {selected && (
-                            <Check
-                              className="w-3 h-3 text-primary-foreground"
-                              strokeWidth={2.5}
-                            />
-                          )}
-                        </div>
-                        <KeyRound
-                          className="w-3.5 h-3.5 shrink-0"
-                          strokeWidth={1.8}
-                        />
-                        {name}
-                      </button>
-                    );
-                  })}
-                </div>
+                          <div
+                            className={cn(
+                              "flex items-center justify-center w-5 h-5 rounded border transition-colors shrink-0",
+                              selected
+                                ? "bg-primary border-primary"
+                                : "border-border bg-transparent"
+                            )}
+                          >
+                            {selected && (
+                              <Check
+                                className="w-3 h-3 text-primary-foreground"
+                                strokeWidth={2.5}
+                              />
+                            )}
+                          </div>
+                          <KeyRound
+                            className="w-3.5 h-3.5 shrink-0"
+                            strokeWidth={1.8}
+                          />
+                          {name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -638,7 +611,7 @@ export function AccessContent() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         {[
           {
             label: "Total agents",

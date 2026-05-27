@@ -141,7 +141,7 @@ export function Hero() {
       />
 
       {/* Main content */}
-      <div className="relative z-20 mx-auto max-w-5xl px-6 pt-28 pb-20 text-center flex flex-col items-center gap-6">
+      <div className="relative z-20 mx-auto max-w-5xl px-4 sm:px-6 pt-28 pb-20 text-center flex flex-col items-center gap-6">
         {/* Badge */}
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-primary/25 bg-primary/8 text-xs font-medium text-primary tracking-wide">
           <span className="relative flex h-1.5 w-1.5">

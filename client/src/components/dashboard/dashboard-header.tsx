@@ -29,7 +29,7 @@ export async function DashboardHeader({ title }: { title: string }) {
   const initials = displayName.slice(0, 2).toUpperCase();
 
   return (
-    <header className="h-16 border-b border-border bg-background/80 backdrop-blur-sm flex items-center justify-between px-6 sticky top-0 z-30">
+    <header className="h-16 border-b border-border bg-background/80 backdrop-blur-sm flex items-center justify-between pl-14 pr-4 sm:pr-6 lg:px-6 sticky top-0 z-30">
       <h1
         className="text-lg font-bold text-foreground"
         style={{ fontFamily: "var(--font-syne)" }}

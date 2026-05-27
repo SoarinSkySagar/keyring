@@ -31,43 +31,8 @@ type Secret = {
   usedBy: number;
 };
 
-const INITIAL_SECRETS: Secret[] = [
-  {
-    id: "sec_1",
-    name: "BINANCE_API_KEY",
-    type: "api_key",
-    addedAt: "May 10, 2026",
-    usedBy: 2,
-  },
-  {
-    id: "sec_2",
-    name: "OPENAI_KEY",
-    type: "api_key",
-    addedAt: "May 8, 2026",
-    usedBy: 1,
-  },
-  {
-    id: "sec_3",
-    name: "COINBASE_SECRET",
-    type: "secret",
-    addedAt: "May 6, 2026",
-    usedBy: 1,
-  },
-  {
-    id: "sec_4",
-    name: "AWS_SECRET_KEY",
-    type: "secret",
-    addedAt: "May 3, 2026",
-    usedBy: 1,
-  },
-  {
-    id: "sec_5",
-    name: "ANTHROPIC_KEY",
-    type: "api_key",
-    addedAt: "Apr 28, 2026",
-    usedBy: 1,
-  },
-];
+// Replace with real API call
+const INITIAL_SECRETS: Secret[] = [];
 
 const typeLabels: Record<Secret["type"], string> = {
   api_key: "API Key",
@@ -274,7 +239,7 @@ export function SecretsContent() {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         {[
           { label: "Total secrets", value: secrets.length },
           { label: "In use", value: secrets.filter((s) => s.usedBy > 0).length },

@@ -3,6 +3,7 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { StatsCards } from "@/components/dashboard/stats-cards";
 import { UsageChart } from "@/components/dashboard/usage-chart";
 import { RecentCallsTable } from "@/components/dashboard/recent-calls-table";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -15,7 +16,7 @@ export default async function DashboardPage() {
     <div className="flex flex-col min-h-screen">
       <DashboardHeader title="Overview" />
 
-      <main className="flex-1 p-6 space-y-6">
+      <main className="flex-1 p-4 sm:p-6 space-y-4 sm:space-y-6">
         {/* Welcome */}
         <div>
           <h2
@@ -31,13 +32,19 @@ export default async function DashboardPage() {
         </div>
 
         {/* Stats */}
-        <StatsCards />
+        <ErrorBoundary>
+          <StatsCards />
+        </ErrorBoundary>
 
         {/* Charts */}
-        <UsageChart />
+        <ErrorBoundary>
+          <UsageChart />
+        </ErrorBoundary>
 
         {/* Recent Calls */}
-        <RecentCallsTable />
+        <ErrorBoundary>
+          <RecentCallsTable />
+        </ErrorBoundary>
       </main>
     </div>
   );

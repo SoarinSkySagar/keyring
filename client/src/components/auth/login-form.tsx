@@ -184,7 +184,7 @@ export function LoginForm() {
 
   return (
     <div className="w-full max-w-[400px]">
-      <div className="rounded-2xl border border-border bg-card p-8 shadow-2xl">
+      <div className="rounded-2xl border border-border bg-card p-5 sm:p-8 shadow-2xl">
         {/* Header */}
         <div className="mb-7 text-center">
           <div className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-primary/10 border border-primary/20 mb-4">

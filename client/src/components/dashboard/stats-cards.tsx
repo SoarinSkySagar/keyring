@@ -1,37 +1,36 @@
 import { KeyRound, Zap, Gauge, Cpu } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const stats = [
-  {
-    label: "Active Grants",
-    value: "3",
-    sub: "+1 this week",
-    icon: KeyRound,
-    trend: "up",
-  },
-  {
-    label: "Operations This Week",
-    value: "247",
-    sub: "↑ 18% vs last week",
-    icon: Zap,
-    trend: "up",
-  },
-  {
-    label: "Budget Utilisation",
-    value: "46%",
-    sub: "1,180 / 2,600 uses",
-    icon: Gauge,
-    trend: "neutral",
-  },
-  {
-    label: "Active Agents",
-    value: "3",
-    sub: "1 near budget limit",
-    icon: Cpu,
-    trend: "warn",
-  },
+  { label: "Active Grants", icon: KeyRound },
+  { label: "Operations This Week", icon: Zap },
+  { label: "Budget Utilisation", icon: Gauge },
+  { label: "Active Agents", icon: Cpu },
 ];
 
-export function StatsCards() {
+export function StatsCards({ isLoading = false }: { isLoading?: boolean }) {
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        {stats.map((stat) => (
+          <div
+            key={stat.label}
+            className="rounded-xl border border-border bg-card p-5 flex flex-col gap-3"
+          >
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="w-8 h-8 rounded-lg" />
+            </div>
+            <div>
+              <Skeleton className="h-8 w-16" />
+              <Skeleton className="h-3 w-20 mt-2" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
       {stats.map((stat) => (
@@ -52,19 +51,9 @@ export function StatsCards() {
               className="text-3xl font-extrabold text-foreground leading-none"
               style={{ fontFamily: "var(--font-syne)" }}
             >
-              {stat.value}
+              —
             </p>
-            <p
-              className={`text-xs mt-1 ${
-                stat.trend === "up"
-                  ? "text-emerald-500"
-                  : stat.trend === "warn"
-                    ? "text-amber-500"
-                    : "text-muted-foreground"
-              }`}
-            >
-              {stat.sub}
-            </p>
+            <p className="text-xs mt-1 text-muted-foreground">No data yet</p>
           </div>
         </div>
       ))}

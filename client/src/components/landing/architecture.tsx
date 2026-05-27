@@ -146,26 +146,28 @@ export function Architecture() {
         <div
           className={`kr-reveal kr-reveal-delay-4 ${inView ? "in-view" : ""} mt-10`}
         >
-          <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground font-mono">
-            <span className="px-3 py-1 rounded border border-border bg-card text-foreground">
-              Agent Intent
-            </span>
-            <span className="text-border">──▶</span>
-            <span className="px-3 py-1 rounded border border-border bg-card">
-              G1 Auth
-            </span>
-            <span className="text-border">──▶</span>
-            <span className="px-3 py-1 rounded border border-primary/25 bg-primary/8 text-primary">
-              TEE Enclave
-            </span>
-            <span className="text-border">──▶</span>
-            <span className="px-3 py-1 rounded border border-border bg-card">
-              G2 CDR
-            </span>
-            <span className="text-border">──▶</span>
-            <span className="px-3 py-1 rounded border border-border bg-card text-foreground">
-              Result Only
-            </span>
+          <div className="overflow-x-auto">
+            <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground font-mono min-w-max mx-auto px-4">
+              <span className="px-3 py-1 rounded border border-border bg-card text-foreground">
+                Agent Intent
+              </span>
+              <span className="text-border">──▶</span>
+              <span className="px-3 py-1 rounded border border-border bg-card">
+                G1 Auth
+              </span>
+              <span className="text-border">──▶</span>
+              <span className="px-3 py-1 rounded border border-primary/25 bg-primary/8 text-primary">
+                TEE Enclave
+              </span>
+              <span className="text-border">──▶</span>
+              <span className="px-3 py-1 rounded border border-border bg-card">
+                G2 CDR
+              </span>
+              <span className="text-border">──▶</span>
+              <span className="px-3 py-1 rounded border border-border bg-card text-foreground">
+                Result Only
+              </span>
+            </div>
           </div>
         </div>
       </div>
