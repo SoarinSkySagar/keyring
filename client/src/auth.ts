@@ -160,16 +160,15 @@ const providers: Provider[] = [
   }),
 ];
 
-// Conditionally add Google OAuth
-if (process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET) {
-  const { default: Google } = await import("next-auth/providers/google");
-  providers.push(
-    Google({
-      clientId: process.env.AUTH_GOOGLE_ID,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET,
-    })
-  );
-}
+// Google OAuth
+const { default: Google } = await import("next-auth/providers/google");
+providers.push(
+  Google({
+    clientId: process.env.AUTH_GOOGLE_ID!,
+    clientSecret: process.env.AUTH_GOOGLE_SECRET!,
+    allowDangerousEmailAccountLinking: true,
+  })
+);
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,

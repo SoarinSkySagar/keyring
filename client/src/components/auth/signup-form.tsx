@@ -54,9 +54,35 @@ function WalletConnectIcon() {
   );
 }
 
+// ── Shared SIWE signing helper ─────────────────────────────────────
+
+type SiweResult =
+  | { ok: true; signature: string; message: string }
+  | { ok: false; error: string };
+
+async function siweSign(
+  address: string,
+  requestFn: (method: string, params: unknown[]) => Promise<unknown>
+): Promise<SiweResult> {
+  const { nonce, error: nonceErr } = await getMetaMaskNonce(address);
+  if (nonceErr || !nonce) return { ok: false, error: "Failed to get nonce. Please try again." };
+
+  const message = [
+    "Sign in to Keyring",
+    "",
+    `Address: ${address}`,
+    `Nonce: ${nonce}`,
+    `Issued At: ${new Date().toISOString()}`,
+    `Chain: Aeneid Testnet`,
+  ].join("\n");
+
+  const signature = (await requestFn("personal_sign", [message, address])) as string;
+  return { ok: true, signature, message };
+}
+
 // ── Component ─────────────────────────────────────────────────────
 
-export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
+export function SignupForm() {
   const [step, setStep] = useState<"details" | "otp">("details");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -67,8 +93,10 @@ export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
   const [rememberMe, setRememberMe] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [isMetaMaskPending, setIsMetaMaskPending] = useState(false);
+  const [isWcPending, setIsWcPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const anyPending = isPending || isMetaMaskPending || isWcPending;
   const passwordsMatch = password === confirmPassword;
   const passwordValid = password.length >= 8;
 
@@ -76,16 +104,8 @@ export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
   const handleSendOTP = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
-    if (!passwordValid) {
-      setError("Password must be at least 8 characters.");
-      return;
-    }
-    if (!passwordsMatch) {
-      setError("Passwords do not match.");
-      return;
-    }
-
+    if (!passwordValid) { setError("Password must be at least 8 characters."); return; }
+    if (!passwordsMatch) { setError("Passwords do not match."); return; }
     startTransition(async () => {
       const result = await sendOTPAction(email, password);
       if (result.success) {
@@ -97,7 +117,7 @@ export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
     });
   };
 
-  // Step 2: verify OTP — password was stored in OTP record at step 1
+  // Step 2: verify OTP
   const handleVerifyOTP = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -107,7 +127,7 @@ export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
     });
   };
 
-  // MetaMask SIWE — creates account if wallet not yet registered
+  // MetaMask SIWE
   const handleMetaMask = async () => {
     if (typeof window === "undefined" || !window.ethereum) {
       toast.error("MetaMask not detected. Please install it.");
@@ -116,42 +136,55 @@ export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
     setIsMetaMaskPending(true);
     setError(null);
     try {
-      const accounts = (await window.ethereum.request({
-        method: "eth_requestAccounts",
-      })) as string[];
+      const accounts = (await window.ethereum.request({ method: "eth_requestAccounts" })) as string[];
       const address = accounts[0];
-
-      const { nonce, error: nonceErr } = await getMetaMaskNonce(address);
-      if (nonceErr || !nonce) {
-        setError("Failed to get nonce. Please try again.");
-        return;
-      }
-
-      const message = [
-        "Sign in to Keyring",
-        "",
-        `Address: ${address}`,
-        `Nonce: ${nonce}`,
-        `Issued At: ${new Date().toISOString()}`,
-        `Chain: Aeneid Testnet`,
-      ].join("\n");
-
-      const signature = (await window.ethereum.request({
-        method: "personal_sign",
-        params: [message, address],
-      })) as string;
-
-      const result = await signInWithMetaMaskAction(address, message, signature);
+      const res = await siweSign(address, (method, params) =>
+        window.ethereum!.request({ method, params })
+      );
+      if (!res.ok) { setError(res.error); return; }
+      const result = await signInWithMetaMaskAction(address, res.message, res.signature);
       if (result.error) setError(result.error);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes("rejected") || msg.includes("denied")) {
-        toast.info("Signature cancelled.");
-      } else {
-        setError("MetaMask sign-in failed. Please try again.");
-      }
+      if (msg.includes("rejected") || msg.includes("denied")) toast.info("Signature cancelled.");
+      else setError("MetaMask sign-in failed. Please try again.");
     } finally {
       setIsMetaMaskPending(false);
+    }
+  };
+
+  // WalletConnect SIWE
+  const handleWalletConnect = async () => {
+    setIsWcPending(true);
+    setError(null);
+    try {
+      const { default: EthereumProvider } = await import("@walletconnect/ethereum-provider");
+      const wcProvider = await EthereumProvider.init({
+        projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!,
+        chains: [1],
+        optionalChains: [1315], // Aeneid testnet
+        showQrModal: true,
+      });
+      await wcProvider.connect();
+      const address = wcProvider.accounts[0];
+      if (!address) { setError("No account connected."); return; }
+
+      const res = await siweSign(address, (method, params) =>
+        wcProvider.request({ method, params })
+      );
+      if (!res.ok) { setError(res.error); return; }
+      const result = await signInWithMetaMaskAction(address, res.message, res.signature);
+      if (result.error) setError(result.error);
+      await wcProvider.disconnect();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("rejected") || msg.includes("denied") || msg.includes("closed")) {
+        toast.info("Connection cancelled.");
+      } else {
+        setError("WalletConnect failed. Please try again.");
+      }
+    } finally {
+      setIsWcPending(false);
     }
   };
 
@@ -186,56 +219,27 @@ export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
         {/* Step 1 — Details */}
         {step === "details" && (
           <form onSubmit={handleSendOTP} className="space-y-4">
-            {/* Email */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Email address
-              </label>
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Email address</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="pl-9 h-11 bg-background border-border focus-visible:ring-primary/50"
-                />
+                <Input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="pl-9 h-11 bg-background border-border focus-visible:ring-primary/50" />
               </div>
             </div>
 
-            {/* Password */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Password
-              </label>
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Password</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="At least 8 characters"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={8}
-                  className="pl-9 pr-10 h-11 bg-background border-border focus-visible:ring-primary/50"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  tabIndex={-1}
-                >
+                <Input type={showPassword ? "text" : "password"} placeholder="At least 8 characters" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} className="pl-9 pr-10 h-11 bg-background border-border focus-visible:ring-primary/50" />
+                <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" tabIndex={-1}>
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
-            {/* Confirm Password */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Confirm password
-              </label>
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Confirm password</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
@@ -244,41 +248,20 @@ export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  className={`pl-9 pr-10 h-11 bg-background border-border focus-visible:ring-primary/50 ${
-                    confirmPassword && !passwordsMatch
-                      ? "border-destructive focus-visible:ring-destructive/50"
-                      : ""
-                  }`}
+                  className={`pl-9 pr-10 h-11 bg-background border-border focus-visible:ring-primary/50 ${confirmPassword && !passwordsMatch ? "border-destructive focus-visible:ring-destructive/50" : ""}`}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirm((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  tabIndex={-1}
-                >
+                <button type="button" onClick={() => setShowConfirm((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" tabIndex={-1}>
                   {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              {confirmPassword && !passwordsMatch && (
-                <p className="text-xs text-destructive">Passwords do not match.</p>
-              )}
+              {confirmPassword && !passwordsMatch && <p className="text-xs text-destructive">Passwords do not match.</p>}
             </div>
 
-            <Button
-              type="submit"
-              disabled={isPending || isMetaMaskPending || !passwordValid || !passwordsMatch || !confirmPassword}
-              className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold"
-            >
-              {isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <>Send verification code <ArrowRight className="ml-2 w-4 h-4" /></>
-              )}
+            <Button type="submit" disabled={anyPending || !passwordValid || !passwordsMatch || !confirmPassword} className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold">
+              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Send verification code <ArrowRight className="ml-2 w-4 h-4" /></>}
             </Button>
 
-            <p className="text-[11px] text-center text-muted-foreground">
-              By signing up you agree to our terms of service.
-            </p>
+            <p className="text-[11px] text-center text-muted-foreground">By signing up you agree to our terms of service.</p>
           </form>
         )}
 
@@ -286,61 +269,27 @@ export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
         {step === "otp" && (
           <form onSubmit={handleVerifyOTP} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                6-digit code
-              </label>
-              <Input
-                type="text"
-                inputMode="numeric"
-                placeholder="000000"
-                maxLength={6}
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                required
-                autoFocus
-                className="h-11 text-center text-xl font-mono tracking-[0.4em] bg-background border-border focus-visible:ring-primary/50"
-              />
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">6-digit code</label>
+              <Input type="text" inputMode="numeric" placeholder="000000" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))} required autoFocus className="h-11 text-center text-xl font-mono tracking-[0.4em] bg-background border-border focus-visible:ring-primary/50" />
             </div>
 
             {/* Remember me */}
             <label className="flex items-center gap-2.5 cursor-pointer select-none group">
               <div className="relative flex-shrink-0">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="peer sr-only"
-                />
+                <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="peer sr-only" />
                 <div className="w-4 h-4 rounded border border-border bg-background peer-checked:bg-primary peer-checked:border-primary transition-colors group-hover:border-primary/60" />
-                <svg
-                  className="absolute inset-0 w-4 h-4 text-primary-foreground opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none"
-                  viewBox="0 0 16 16" fill="none"
-                >
+                <svg className="absolute inset-0 w-4 h-4 text-primary-foreground opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" viewBox="0 0 16 16" fill="none">
                   <path d="M3.5 8L6.5 11L12.5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
-              <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
-                Remember me for 30 days
-              </span>
+              <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">Remember me for 30 days</span>
             </label>
 
-            <Button
-              type="submit"
-              disabled={isPending || otp.length !== 6}
-              className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold"
-            >
-              {isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <>Create account <ArrowRight className="ml-2 w-4 h-4" /></>
-              )}
+            <Button type="submit" disabled={anyPending || otp.length !== 6} className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold">
+              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Create account <ArrowRight className="ml-2 w-4 h-4" /></>}
             </Button>
 
-            <button
-              type="button"
-              onClick={() => { setStep("details"); setOtp(""); setError(null); }}
-              className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
+            <button type="button" onClick={() => { setStep("details"); setOtp(""); setError(null); }} className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors">
               ← Go back
             </button>
           </form>
@@ -355,62 +304,26 @@ export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
 
         {/* OAuth / Web3 buttons */}
         <div className="space-y-3">
-          {/* Google */}
-          <Button
-            type="button"
-            variant="outline"
-            disabled={!googleEnabled || isPending || isMetaMaskPending}
-            onClick={() => googleEnabled && startTransition(() => signInWithGoogleAction())}
-            className="w-full h-11 border-border hover:bg-accent text-foreground font-medium disabled:opacity-50"
-          >
+          <Button type="button" variant="outline" disabled={anyPending} onClick={() => startTransition(() => signInWithGoogleAction())} className="w-full h-11 border-border hover:bg-accent text-foreground font-medium disabled:opacity-50">
             <GoogleIcon />
             <span className="ml-2">Continue with Google</span>
-            {!googleEnabled && (
-              <span className="ml-auto text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                Not configured
-              </span>
-            )}
           </Button>
 
-          {/* MetaMask */}
-          <Button
-            type="button"
-            variant="outline"
-            disabled={isMetaMaskPending || isPending}
-            onClick={handleMetaMask}
-            className="w-full h-11 border-border hover:bg-accent text-foreground font-medium disabled:opacity-50"
-          >
-            {isMetaMaskPending ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <MetaMaskIcon />
-            )}
-            <span className="ml-2">
-              {isMetaMaskPending ? "Waiting for MetaMask…" : "Sign up with MetaMask"}
-            </span>
+          <Button type="button" variant="outline" disabled={anyPending} onClick={handleMetaMask} className="w-full h-11 border-border hover:bg-accent text-foreground font-medium disabled:opacity-50">
+            {isMetaMaskPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <MetaMaskIcon />}
+            <span className="ml-2">{isMetaMaskPending ? "Waiting for MetaMask…" : "Sign up with MetaMask"}</span>
           </Button>
 
-          {/* WalletConnect — coming soon */}
-          <Button
-            type="button"
-            variant="outline"
-            disabled
-            className="w-full h-11 border-border text-foreground font-medium opacity-50 cursor-not-allowed"
-          >
-            <WalletConnectIcon />
-            <span className="ml-2">WalletConnect</span>
-            <span className="ml-auto text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-              Coming soon
-            </span>
+          <Button type="button" variant="outline" disabled={anyPending} onClick={handleWalletConnect} className="w-full h-11 border-border hover:bg-accent text-foreground font-medium disabled:opacity-50">
+            {isWcPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <WalletConnectIcon />}
+            <span className="ml-2">{isWcPending ? "Connecting…" : "Sign up with WalletConnect"}</span>
           </Button>
         </div>
       </div>
 
       <p className="mt-5 text-center text-sm text-muted-foreground">
         Already have an account?{" "}
-        <a href="/login" className="text-primary hover:underline font-medium">
-          Sign in
-        </a>
+        <a href="/login" className="text-primary hover:underline font-medium">Sign in</a>
       </p>
     </div>
   );
