@@ -2,13 +2,12 @@
 
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { apiCalls } from "@/db/schema";
-import { eq, gte, and, desc } from "drizzle-orm";
-import { sql } from "drizzle-orm";
+import { apiCalls, agents } from "@/db/schema";
+import { eq, gte, and, desc, count } from "drizzle-orm";
 
 export interface WeeklyPoint {
-  day: string;   // e.g. "Mon"
-  date: string;  // "YYYY-MM-DD"
+  day: string;
+  date: string;
   calls: number;
 }
 
@@ -19,14 +18,16 @@ export interface RecentCall {
   status: number;
   latencyMs: number | null;
   createdAt: Date;
+  agentName: string | null;
 }
 
 export interface UsageStats {
   totalThisWeek: number;
   weekly: WeeklyPoint[];
-  hourly: number[];        // 24 ints — counts per hour for today (UTC)
+  hourly: number[];
   recentCalls: RecentCall[];
   peakHour: number;
+  activeAgents: number;
 }
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -38,16 +39,14 @@ export async function getUsageStatsAction(): Promise<UsageStats | null> {
   const userId = session.user.id;
   const now = new Date();
 
-  // ── Weekly window (last 7 complete days + today) ─────────────
   const sevenDaysAgo = new Date(now);
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
   sevenDaysAgo.setHours(0, 0, 0, 0);
 
-  // ── Today window ─────────────────────────────────────────────
   const todayStart = new Date(now);
   todayStart.setHours(0, 0, 0, 0);
 
-  // Fetch last 200 rows for the week — enough for all calculations
+  // Fetch recent call rows joined with agent name
   const rows = await db
     .select({
       id: apiCalls.id,
@@ -56,8 +55,10 @@ export async function getUsageStatsAction(): Promise<UsageStats | null> {
       status: apiCalls.status,
       latencyMs: apiCalls.latencyMs,
       createdAt: apiCalls.createdAt,
+      agentName: agents.name,
     })
     .from(apiCalls)
+    .leftJoin(agents, eq(apiCalls.agentId, agents.id))
     .where(
       and(
         eq(apiCalls.userId, userId),
@@ -67,13 +68,20 @@ export async function getUsageStatsAction(): Promise<UsageStats | null> {
     .orderBy(desc(apiCalls.createdAt))
     .limit(500);
 
-  // ── Build weekly buckets ──────────────────────────────────────
+  // Active agents count
+  const [agentCountRow] = await db
+    .select({ count: count() })
+    .from(agents)
+    .where(and(eq(agents.userId, userId), eq(agents.status, "active")));
+
+  const activeAgents = agentCountRow?.count ?? 0;
+
+  // Weekly buckets
   const buckets: Record<string, number> = {};
   for (let i = 6; i >= 0; i--) {
     const d = new Date(now);
     d.setDate(d.getDate() - i);
-    const key = d.toISOString().slice(0, 10); // YYYY-MM-DD
-    buckets[key] = 0;
+    buckets[d.toISOString().slice(0, 10)] = 0;
   }
   for (const row of rows) {
     const key = row.createdAt.toISOString().slice(0, 10);
@@ -85,7 +93,7 @@ export async function getUsageStatsAction(): Promise<UsageStats | null> {
     return { day: DAY_LABELS[d.getUTCDay()], date, calls };
   });
 
-  // ── Build hourly buckets for today ────────────────────────────
+  // Hourly buckets for today
   const hourly = new Array<number>(24).fill(0);
   for (const row of rows) {
     if (row.createdAt >= todayStart) {
@@ -93,18 +101,20 @@ export async function getUsageStatsAction(): Promise<UsageStats | null> {
     }
   }
 
-  const totalThisWeek = rows.length;
-  const peakHour = Math.max(...hourly);
-
-  // ── Recent calls (top 20) ──────────────────────────────────────
-  const recentCalls: RecentCall[] = rows.slice(0, 20).map((r) => ({
-    id: r.id,
-    path: r.path,
-    method: r.method,
-    status: r.status,
-    latencyMs: r.latencyMs,
-    createdAt: r.createdAt,
-  }));
-
-  return { totalThisWeek, weekly, hourly, recentCalls, peakHour };
+  return {
+    totalThisWeek: rows.length,
+    weekly,
+    hourly,
+    peakHour: Math.max(...hourly),
+    activeAgents,
+    recentCalls: rows.slice(0, 20).map((r) => ({
+      id: r.id,
+      path: r.path,
+      method: r.method,
+      status: r.status,
+      latencyMs: r.latencyMs,
+      createdAt: r.createdAt,
+      agentName: r.agentName ?? null,
+    })),
+  };
 }

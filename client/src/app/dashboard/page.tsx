@@ -36,7 +36,10 @@ export default async function DashboardPage() {
 
         {/* Stats */}
         <ErrorBoundary>
-          <StatsCards totalThisWeek={stats?.totalThisWeek ?? null} />
+          <StatsCards
+            totalThisWeek={stats?.totalThisWeek ?? null}
+            activeAgents={stats?.activeAgents ?? null}
+          />
         </ErrorBoundary>
 
         {/* Charts */}

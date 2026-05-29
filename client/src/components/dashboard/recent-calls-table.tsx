@@ -1,4 +1,4 @@
-import { CheckCircle2, XCircle, Radio } from "lucide-react";
+import { CheckCircle2, XCircle, Radio, Bot } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -33,9 +33,7 @@ function StatusBadge({ status }: { status: number }) {
     ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
     : "bg-destructive/10 text-destructive border-destructive/20";
   return (
-    <span
-      className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${cls}`}
-    >
+    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${cls}`}>
       <Icon className="w-3 h-3" strokeWidth={2} />
       {status}
     </span>
@@ -67,11 +65,12 @@ export function RecentCallsTable({ isLoading = false, calls }: Props) {
         <div className="divide-y divide-border">
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="flex items-center gap-4 px-5 py-3.5">
-              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-4 w-20" />
               <Skeleton className="h-4 w-28 flex-1" />
-              <Skeleton className="h-5 w-16 rounded-full" />
-              <Skeleton className="h-4 w-12 hidden lg:block" />
-              <Skeleton className="h-4 w-16 ml-auto" />
+              <Skeleton className="h-4 w-24 hidden sm:block" />
+              <Skeleton className="h-5 w-12 rounded-full" />
+              <Skeleton className="h-4 w-10 hidden lg:block" />
+              <Skeleton className="h-4 w-14 ml-auto" />
             </div>
           ))}
         </div>
@@ -93,7 +92,7 @@ export function RecentCallsTable({ isLoading = false, calls }: Props) {
             <TableRow>
               <TableHead>Request ID</TableHead>
               <TableHead>Path</TableHead>
-              <TableHead className="hidden md:table-cell">Method</TableHead>
+              <TableHead className="hidden sm:table-cell">Agent</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="hidden lg:table-cell">Latency</TableHead>
               <TableHead className="text-right">Time</TableHead>
@@ -112,10 +111,15 @@ export function RecentCallsTable({ isLoading = false, calls }: Props) {
                     {call.path || "/"}
                   </span>
                 </TableCell>
-                <TableCell className="hidden md:table-cell">
-                  <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground">
-                    {call.method}
-                  </span>
+                <TableCell className="hidden sm:table-cell">
+                  {call.agentName ? (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-foreground">
+                      <Bot className="w-3 h-3 text-primary shrink-0" strokeWidth={1.8} />
+                      {call.agentName}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
                 </TableCell>
                 <TableCell>
                   <StatusBadge status={call.status} />

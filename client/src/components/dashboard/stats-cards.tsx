@@ -4,17 +4,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface Props {
   isLoading?: boolean;
   totalThisWeek: number | null;
+  activeAgents: number | null;
 }
 
-export function StatsCards({ isLoading = false, totalThisWeek }: Props) {
+export function StatsCards({ isLoading = false, totalThisWeek, activeAgents }: Props) {
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div
-            key={i}
-            className="rounded-xl border border-border bg-card p-5 flex flex-col gap-3"
-          >
+          <div key={i} className="rounded-xl border border-border bg-card p-5 flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <Skeleton className="h-3 w-24" />
               <Skeleton className="w-8 h-8 rounded-lg" />
@@ -56,8 +54,13 @@ export function StatsCards({ isLoading = false, totalThisWeek }: Props) {
     {
       label: "Active Agents",
       icon: Cpu,
-      value: "—",
-      sub: "No data yet",
+      value: activeAgents !== null ? String(activeAgents) : "—",
+      sub:
+        activeAgents !== null
+          ? activeAgents === 0
+            ? "No agents whitelisted"
+            : `Whitelisted agent${activeAgents !== 1 ? "s" : ""}`
+          : "No data yet",
     },
   ];
 

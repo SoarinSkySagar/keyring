@@ -155,7 +155,9 @@ export const apiCalls = pgTable("api_calls", {
   userId: text("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  path: text("path").notNull().default(""),      // URL path after /api/<key>/
+  agentId: text("agent_id")
+    .references(() => agents.id, { onDelete: "set null" }), // null for GET/unauthenticated
+  path: text("path").notNull().default(""),
   method: text("method").notNull().default("GET"),
   status: integer("status").notNull().default(200),
   latencyMs: integer("latency_ms"),

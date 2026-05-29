@@ -25,8 +25,8 @@ function checkRateLimit(
   const now = Date.now();
   const w = getWindow(userId);
   w.minute = w.minute.filter((t) => t > now - 60_000);
-  w.hour = w.hour.filter((t) => t > now - 3_600_000);
-  w.day = w.day.filter((t) => t > now - 86_400_000);
+  w.hour   = w.hour.filter((t)   => t > now - 3_600_000);
+  w.day    = w.day.filter((t)    => t > now - 86_400_000);
 
   if (w.minute.length >= limits.perMinute)
     return { allowed: false, retryAfter: Math.ceil((w.minute[0] + 60_000 - now) / 1000) };
@@ -48,10 +48,11 @@ function recordCall(
   method: string,
   path: string,
   status: number,
-  latencyMs: number
+  latencyMs: number,
+  agentId?: string          // internal agents.id — undefined for GET / failures before agent lookup
 ) {
   db.insert(apiCalls)
-    .values({ id: randomUUID(), userId, path, method, status, latencyMs })
+    .values({ id: randomUUID(), userId, agentId: agentId ?? null, path, method, status, latencyMs })
     .catch((err) => console.error("[api-calls] log failed", err));
 }
 
@@ -66,24 +67,17 @@ async function handle(
   const url = new URL(request.url);
   const subPath = url.pathname.replace(/^\/api\/[^/]+/, "") || "/";
 
-  // ── Check 1: API key format ───────────────────────────────────
+  // ── Check 1: API key ──────────────────────────────────────────
   if (!apiKey?.startsWith("kr_")) {
     return Response.json({ error: "Invalid API key format" }, { status: 401 });
   }
 
   const hash = createHash("sha256").update(apiKey).digest("hex");
-
   const user = await db.query.users.findFirst({
     where: eq(users.apiKeyHash, hash),
-    columns: {
-      id: true,
-      rateLimitPerMinute: true,
-      rateLimitPerHour: true,
-      rateLimitPerDay: true,
-    },
+    columns: { id: true, rateLimitPerMinute: true, rateLimitPerHour: true, rateLimitPerDay: true },
   });
 
-  // ── Check 1 (cont): key must exist ───────────────────────────
   if (!user) {
     return Response.json({ error: "Invalid API key" }, { status: 401 });
   }
@@ -91,27 +85,21 @@ async function handle(
   // ── Check 2: rate limit ───────────────────────────────────────
   const { allowed, retryAfter } = checkRateLimit(user.id, {
     perMinute: user.rateLimitPerMinute,
-    perHour: user.rateLimitPerHour,
-    perDay: user.rateLimitPerDay,
+    perHour:   user.rateLimitPerHour,
+    perDay:    user.rateLimitPerDay,
   });
 
   if (!allowed) {
     recordCall(user.id, request.method, subPath, 429, Date.now() - start);
     return Response.json(
       { error: "Rate limit exceeded" },
-      {
-        status: 429,
-        headers: {
-          "Retry-After": String(retryAfter ?? 60),
-          "X-RateLimit-Limit-Minute": String(user.rateLimitPerMinute),
-          "X-RateLimit-Limit-Hour": String(user.rateLimitPerHour),
-          "X-RateLimit-Limit-Day": String(user.rateLimitPerDay),
-        },
-      }
+      { status: 429, headers: { "Retry-After": String(retryAfter ?? 60) } }
     );
   }
 
-  // ── Checks 3 & 4: body validation (POST / PUT / PATCH / DELETE)
+  // ── Checks 3 & 4: body validation (non-GET) ───────────────────
+  let resolvedAgentId: string | undefined;
+
   if (request.method !== "GET" && request.method !== "HEAD") {
     let body: Record<string, unknown> = {};
     try {
@@ -123,14 +111,14 @@ async function handle(
     }
 
     // ── Check 3: agentId ───────────────────────────────────────
-    const agentId = body.agentId as string | undefined;
-    if (!agentId) {
+    const agentKey = body.agentId as string | undefined;
+    if (!agentKey) {
       recordCall(user.id, request.method, subPath, 401, Date.now() - start);
       return Response.json({ error: "agentId is required" }, { status: 401 });
     }
 
     const agent = await db.query.agents.findFirst({
-      where: and(eq(agents.agentKey, agentId), eq(agents.userId, user.id)),
+      where: and(eq(agents.agentKey, agentKey), eq(agents.userId, user.id)),
       columns: { id: true, allowedSecrets: true, status: true },
     });
 
@@ -139,56 +127,37 @@ async function handle(
       return Response.json({ error: "Agent not recognised" }, { status: 401 });
     }
 
+    resolvedAgentId = agent.id; // internal DB id for logging
+
     // ── Check 4: secretsRequested ─────────────────────────────
     const secretsRequested = body.secretsRequested as string[] | undefined;
     if (!Array.isArray(secretsRequested) || secretsRequested.length === 0) {
-      recordCall(user.id, request.method, subPath, 400, Date.now() - start);
-      return Response.json(
-        { error: "secretsRequested must be a non-empty array" },
-        { status: 400 }
-      );
+      recordCall(user.id, request.method, subPath, 400, Date.now() - start, resolvedAgentId);
+      return Response.json({ error: "secretsRequested must be a non-empty array" }, { status: 400 });
     }
 
-    const denied = secretsRequested.filter(
-      (s) => !agent.allowedSecrets.includes(s)
-    );
+    const denied = secretsRequested.filter((s) => !agent.allowedSecrets.includes(s));
     if (denied.length > 0) {
-      recordCall(user.id, request.method, subPath, 403, Date.now() - start);
+      recordCall(user.id, request.method, subPath, 403, Date.now() - start, resolvedAgentId);
       return Response.json(
         { error: `Secret not allowed for this agent: ${denied.join(", ")}` },
         { status: 403 }
       );
     }
 
-    // taskRequested
     if (!body.taskRequested || typeof body.taskRequested !== "string") {
-      recordCall(user.id, request.method, subPath, 400, Date.now() - start);
-      return Response.json(
-        { error: "taskRequested is required" },
-        { status: 400 }
-      );
+      recordCall(user.id, request.method, subPath, 400, Date.now() - start, resolvedAgentId);
+      return Response.json({ error: "taskRequested is required" }, { status: 400 });
     }
   }
 
   // ── All checks passed ─────────────────────────────────────────
-  const latency = Date.now() - start;
-  recordCall(user.id, request.method, subPath, 200, latency);
-
-  return Response.json(
-    { ok: true, userId: user.id },
-    {
-      status: 200,
-      headers: {
-        "X-RateLimit-Limit-Minute": String(user.rateLimitPerMinute),
-        "X-RateLimit-Limit-Hour": String(user.rateLimitPerHour),
-        "X-RateLimit-Limit-Day": String(user.rateLimitPerDay),
-      },
-    }
-  );
+  recordCall(user.id, request.method, subPath, 200, Date.now() - start, resolvedAgentId);
+  return Response.json({ ok: true, userId: user.id }, { status: 200 });
 }
 
-export const GET = handle;
-export const POST = handle;
-export const PUT = handle;
-export const PATCH = handle;
+export const GET    = handle;
+export const POST   = handle;
+export const PUT    = handle;
+export const PATCH  = handle;
 export const DELETE = handle;
