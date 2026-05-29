@@ -1,12 +1,10 @@
 import { NextRequest } from "next/server";
 import { createHash, randomUUID } from "crypto";
 import { db } from "@/db";
-import { users, apiCalls } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { users, agents, apiCalls } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 
 // ── In-memory sliding-window rate limiter ────────────────────────
-// Tracks request timestamps per user ID across three windows.
-// For production, replace with a Redis-backed store (e.g. Upstash).
 
 type Window = { minute: number[]; hour: number[]; day: number[] };
 const windows = new Map<string, Window>();
@@ -26,23 +24,16 @@ function checkRateLimit(
 ): { allowed: boolean; retryAfter?: number } {
   const now = Date.now();
   const w = getWindow(userId);
+  w.minute = w.minute.filter((t) => t > now - 60_000);
+  w.hour = w.hour.filter((t) => t > now - 3_600_000);
+  w.day = w.day.filter((t) => t > now - 86_400_000);
 
-  const minAgo = now - 60_000;
-  const hourAgo = now - 3_600_000;
-  const dayAgo = now - 86_400_000;
-  w.minute = w.minute.filter((t) => t > minAgo);
-  w.hour = w.hour.filter((t) => t > hourAgo);
-  w.day = w.day.filter((t) => t > dayAgo);
-
-  if (w.minute.length >= limits.perMinute) {
+  if (w.minute.length >= limits.perMinute)
     return { allowed: false, retryAfter: Math.ceil((w.minute[0] + 60_000 - now) / 1000) };
-  }
-  if (w.hour.length >= limits.perHour) {
+  if (w.hour.length >= limits.perHour)
     return { allowed: false, retryAfter: Math.ceil((w.hour[0] + 3_600_000 - now) / 1000) };
-  }
-  if (w.day.length >= limits.perDay) {
+  if (w.day.length >= limits.perDay)
     return { allowed: false, retryAfter: Math.ceil((w.day[0] + 86_400_000 - now) / 1000) };
-  }
 
   w.minute.push(now);
   w.hour.push(now);
@@ -52,14 +43,13 @@ function checkRateLimit(
 
 // ── Call recorder ────────────────────────────────────────────────
 
-async function recordCall(
+function recordCall(
   userId: string,
   method: string,
   path: string,
   status: number,
   latencyMs: number
 ) {
-  // Fire-and-forget: don't let logging failures affect the response
   db.insert(apiCalls)
     .values({ id: randomUUID(), userId, path, method, status, latencyMs })
     .catch((err) => console.error("[api-calls] log failed", err));
@@ -73,11 +63,10 @@ async function handle(
 ): Promise<Response> {
   const start = Date.now();
   const { apiKey } = await params;
-
-  // Reconstruct the sub-path (everything after /api/<key>)
   const url = new URL(request.url);
   const subPath = url.pathname.replace(/^\/api\/[^/]+/, "") || "/";
 
+  // ── Check 1: API key format ───────────────────────────────────
   if (!apiKey?.startsWith("kr_")) {
     return Response.json({ error: "Invalid API key format" }, { status: 401 });
   }
@@ -94,10 +83,12 @@ async function handle(
     },
   });
 
+  // ── Check 1 (cont): key must exist ───────────────────────────
   if (!user) {
     return Response.json({ error: "Invalid API key" }, { status: 401 });
   }
 
+  // ── Check 2: rate limit ───────────────────────────────────────
   const { allowed, retryAfter } = checkRateLimit(user.id, {
     perMinute: user.rateLimitPerMinute,
     perHour: user.rateLimitPerHour,
@@ -105,7 +96,7 @@ async function handle(
   });
 
   if (!allowed) {
-    await recordCall(user.id, request.method, subPath, 429, Date.now() - start);
+    recordCall(user.id, request.method, subPath, 429, Date.now() - start);
     return Response.json(
       { error: "Rate limit exceeded" },
       {
@@ -120,8 +111,68 @@ async function handle(
     );
   }
 
+  // ── Checks 3 & 4: body validation (POST / PUT / PATCH / DELETE)
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    let body: Record<string, unknown> = {};
+    try {
+      const text = await request.text();
+      if (text) body = JSON.parse(text);
+    } catch {
+      recordCall(user.id, request.method, subPath, 400, Date.now() - start);
+      return Response.json({ error: "Request body must be valid JSON" }, { status: 400 });
+    }
+
+    // ── Check 3: agentId ───────────────────────────────────────
+    const agentId = body.agentId as string | undefined;
+    if (!agentId) {
+      recordCall(user.id, request.method, subPath, 401, Date.now() - start);
+      return Response.json({ error: "agentId is required" }, { status: 401 });
+    }
+
+    const agent = await db.query.agents.findFirst({
+      where: and(eq(agents.agentKey, agentId), eq(agents.userId, user.id)),
+      columns: { id: true, allowedSecrets: true, status: true },
+    });
+
+    if (!agent || agent.status !== "active") {
+      recordCall(user.id, request.method, subPath, 401, Date.now() - start);
+      return Response.json({ error: "Agent not recognised" }, { status: 401 });
+    }
+
+    // ── Check 4: secretsRequested ─────────────────────────────
+    const secretsRequested = body.secretsRequested as string[] | undefined;
+    if (!Array.isArray(secretsRequested) || secretsRequested.length === 0) {
+      recordCall(user.id, request.method, subPath, 400, Date.now() - start);
+      return Response.json(
+        { error: "secretsRequested must be a non-empty array" },
+        { status: 400 }
+      );
+    }
+
+    const denied = secretsRequested.filter(
+      (s) => !agent.allowedSecrets.includes(s)
+    );
+    if (denied.length > 0) {
+      recordCall(user.id, request.method, subPath, 403, Date.now() - start);
+      return Response.json(
+        { error: `Secret not allowed for this agent: ${denied.join(", ")}` },
+        { status: 403 }
+      );
+    }
+
+    // taskRequested
+    if (!body.taskRequested || typeof body.taskRequested !== "string") {
+      recordCall(user.id, request.method, subPath, 400, Date.now() - start);
+      return Response.json(
+        { error: "taskRequested is required" },
+        { status: 400 }
+      );
+    }
+  }
+
+  // ── All checks passed ─────────────────────────────────────────
   const latency = Date.now() - start;
-  await recordCall(user.id, request.method, subPath, 200, latency);
+  recordCall(user.id, request.method, subPath, 200, latency);
 
   return Response.json(
     { ok: true, userId: user.id },
