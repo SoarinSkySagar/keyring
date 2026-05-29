@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { usePrivy, useWallets } from "@privy-io/react-auth";
+import { useState, useEffect } from "react";
+import { usePrivy, useWallets, useCreateWallet } from "@privy-io/react-auth";
 import { Copy, Check, LogOut } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -17,6 +17,7 @@ function truncate(addr: string) {
 export function UserMenu() {
   const { user, logout } = usePrivy();
   const { wallets } = useWallets();
+  const { createWallet } = useCreateWallet();
   const [copied, setCopied] = useState(false);
 
   const email = user?.email?.address ?? user?.google?.email ?? null;
@@ -45,6 +46,29 @@ export function UserMenu() {
   const embeddedFromHook = wallets.find(isEmbedded);
   const embeddedFromAccounts = walletAccounts.find(isEmbedded);
   const walletAddress = embeddedFromHook?.address ?? embeddedFromAccounts?.address ?? null;
+
+  // Debug: log wallet data so you can inspect in browser DevTools.
+  useEffect(() => {
+    if (!user) return;
+    console.log("[UserMenu] wallets from useWallets():", wallets.map(w => ({
+      address: w.address, walletClientType: w.walletClientType, connectorType: w.connectorType,
+    })));
+    console.log("[UserMenu] wallet linkedAccounts:", walletAccounts.map(w => ({
+      address: w.address, walletClientType: w.walletClientType, connectorType: w.connectorType,
+    })));
+    console.log("[UserMenu] resolved embedded wallet address:", walletAddress);
+  }, [user, wallets]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // If no embedded wallet found after Privy is ready, create one.
+  // This handles users who authenticated via external wallet before
+  // createOnLogin was configured, or when it silently failed.
+  useEffect(() => {
+    if (!user || walletAddress) return;
+    createWallet().catch(() => {
+      // Silently ignore — most likely the wallet already exists and
+      // Privy just needs a moment to surface it.
+    });
+  }, [user, walletAddress]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const copyAddress = () => {
     if (!walletAddress) return;
