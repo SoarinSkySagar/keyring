@@ -16,6 +16,9 @@ export const users = pgTable("users", {
   name: text("name"),
   email: text("email").unique(),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+  // Per-user smart contract addresses (deployed on first login via smart wallet)
+  agentRegistryAddress: text("agent_registry_address"),
+  conditionAddress: text("condition_address"),
   // API key for agent connections — only the SHA-256 hash is stored
   apiKeyHash: text("api_key_hash").unique(),
   // Rate limit settings (requests per window, configurable by user)
