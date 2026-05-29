@@ -15,7 +15,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
         loginMethods: ["email", "google", "wallet", "passkey"],
         appearance: {
           theme: "dark",
-          accentColor: "#8b5cf6",
+          // accentColor and logo come from the Privy dashboard UI components
+          // settings — don't set them here or they override the dashboard values.
         },
         defaultChain: aeneid,
         supportedChains: [aeneid],
