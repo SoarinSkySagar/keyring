@@ -12,7 +12,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <PrivyProvider
       appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID!}
       config={{
-        loginMethods: ["email", "google", "wallet", "passkey"],
+        loginMethods: ["email", "google", "wallet"],
         appearance: {
           theme: "dark",
           // accentColor and logo come from the Privy dashboard UI components
