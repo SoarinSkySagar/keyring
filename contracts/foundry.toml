@@ -1,0 +1,16 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+cache_path = "forge-cache"
+optimizer = true
+optimizer_runs = 20000
+solc = "0.8.26"
+evm_version = "cancun"
+
+remappings = [
+    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+    "@storyprotocol/core/=lib/protocol-core-v1/contracts/",
+    "@storyprotocol/periphery/=lib/protocol-periphery-v1/contracts/",
+    "forge-std/=lib/forge-std/src/",
+]
