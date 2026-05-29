@@ -1,7 +1,6 @@
 "use client";
 
 import { usePrivy } from "@privy-io/react-auth";
-import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -13,11 +12,12 @@ interface SignOutButtonProps {
 
 export function SignOutButton({ className, sidebar = false }: SignOutButtonProps) {
   const { logout } = usePrivy();
-  const router = useRouter();
 
   const handleSignOut = async () => {
     await logout();
-    router.push("/");
+    // Use window.location.replace so the full-page navigation to "/" completes
+    // before AuthGuard's authenticated→false effect can redirect to "/login".
+    window.location.replace("/");
   };
 
   if (sidebar) {
