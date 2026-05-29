@@ -1,7 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useSession } from "next-auth/react";
+import { usePrivy } from "@privy-io/react-auth";
 import { useEffect, useState } from "react";
 import {
   Sun,
@@ -18,7 +18,7 @@ const navLinks = ["How it works", "Security", "Docs"];
 
 export function Navbar() {
   const { theme, setTheme } = useTheme();
-  const { data: session, status } = useSession();
+  const { ready, authenticated } = usePrivy();
   const [mounted, setMounted] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -30,7 +30,7 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const isLoggedIn = status === "authenticated" && !!session;
+  const isLoggedIn = ready && authenticated;
 
   return (
     <header
@@ -84,8 +84,8 @@ export function Navbar() {
             </button>
           )}
 
-          {/* Auth button — shows after hydration */}
-          {!mounted || status === "loading" ? (
+          {/* Auth button — shows after Privy is ready */}
+          {!mounted || !ready ? (
             <div className="h-9 w-24 sm:w-28 rounded-md bg-muted animate-pulse" />
           ) : isLoggedIn ? (
             <Button

@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@/auth";
+import { getCurrentUser } from "@/lib/privy";
 import { db } from "@/db";
 import { agents } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -24,11 +24,11 @@ function generateAgentKey(): string {
 // ── List ─────────────────────────────────────────────────────────
 
 export async function getAgentsAction(): Promise<AgentRow[]> {
-  const session = await auth();
-  if (!session?.user?.id) return [];
+  const user = await getCurrentUser();
+  if (!user) return [];
 
   const rows = await db.query.agents.findMany({
-    where: eq(agents.userId, session.user.id),
+    where: eq(agents.userId, user.id),
     orderBy: (a, { desc }) => [desc(a.createdAt)],
   });
 
@@ -50,8 +50,8 @@ export async function createAgentAction(
   allowedSecrets: string[],
   policy: string
 ): Promise<{ agent?: AgentRow; error?: string }> {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "Not authenticated" };
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
 
   if (!name.trim()) return { error: "Name is required" };
   if (!allowedSecrets.length) return { error: "Select at least one secret" };
@@ -63,7 +63,7 @@ export async function createAgentAction(
     .insert(agents)
     .values({
       id: crypto.randomUUID(),
-      userId: session.user.id,
+      userId: user.id,
       name: name.trim(),
       agentKey,
       allowedSecrets,
@@ -87,12 +87,12 @@ export async function createAgentAction(
 // ── Delete ───────────────────────────────────────────────────────
 
 export async function deleteAgentAction(id: string): Promise<{ error?: string }> {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "Not authenticated" };
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
 
   await db
     .delete(agents)
-    .where(and(eq(agents.id, id), eq(agents.userId, session.user.id)));
+    .where(and(eq(agents.id, id), eq(agents.userId, user.id)));
 
   return {};
 }
@@ -102,15 +102,15 @@ export async function deleteAgentAction(id: string): Promise<{ error?: string }>
 export async function regenerateAgentKeyAction(
   id: string
 ): Promise<{ agentKey?: string; error?: string }> {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "Not authenticated" };
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
 
   const newKey = generateAgentKey();
 
   const [row] = await db
     .update(agents)
     .set({ agentKey: newKey })
-    .where(and(eq(agents.id, id), eq(agents.userId, session.user.id)))
+    .where(and(eq(agents.id, id), eq(agents.userId, user.id)))
     .returning({ agentKey: agents.agentKey });
 
   if (!row) return { error: "Agent not found" };

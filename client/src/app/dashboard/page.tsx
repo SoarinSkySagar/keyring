@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { getCurrentUser } from "@/lib/privy";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { StatsCards } from "@/components/dashboard/stats-cards";
 import { UsageChart } from "@/components/dashboard/usage-chart";
@@ -7,10 +7,10 @@ import { ErrorBoundary } from "@/components/error-boundary";
 import { getUsageStatsAction } from "@/actions/stats";
 
 export default async function DashboardPage() {
-  const session = await auth();
+  const user = await getCurrentUser();
   const firstName =
-    session?.user?.name?.split(" ")[0] ??
-    session?.user?.email?.split("@")[0] ??
+    user?.name?.split(" ")[0] ??
+    user?.email?.split("@")[0] ??
     "there";
 
   const stats = await getUsageStatsAction();

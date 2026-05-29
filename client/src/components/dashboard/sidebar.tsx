@@ -9,11 +9,10 @@ import {
   Lock,
   Users,
   ArrowLeft,
-  LogOut,
   Menu,
   X,
 } from "lucide-react";
-import { signOutAction } from "@/actions/auth";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -134,15 +133,7 @@ export function Sidebar() {
             <ArrowLeft className="w-4 h-4" strokeWidth={1.8} />
             Back to website
           </Link>
-          <form action={signOutAction}>
-            <button
-              type="submit"
-              className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/8 transition-colors"
-            >
-              <LogOut className="w-4 h-4" strokeWidth={1.8} />
-              Sign out
-            </button>
-          </form>
+          <SignOutButton sidebar />
         </div>
       </aside>
     </>

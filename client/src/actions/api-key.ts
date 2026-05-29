@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@/auth";
+import { getCurrentUser } from "@/lib/privy";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -27,8 +27,8 @@ export async function generateApiKeyAction(): Promise<{
   key?: string;
   error?: string;
 }> {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "Not authenticated" };
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
 
   const key = createApiKey();
   const hash = hashApiKey(key);
@@ -36,7 +36,7 @@ export async function generateApiKeyAction(): Promise<{
   await db
     .update(users)
     .set({ apiKeyHash: hash })
-    .where(eq(users.id, session.user.id));
+    .where(eq(users.id, user.id));
 
   return { key };
 }
@@ -51,15 +51,15 @@ export async function getApiKeyStatusAction(): Promise<{
   configured: boolean;
   error?: string;
 }> {
-  const session = await auth();
-  if (!session?.user?.id) return { configured: false, error: "Not authenticated" };
+  const user = await getCurrentUser();
+  if (!user) return { configured: false, error: "Not authenticated" };
 
-  const user = await db.query.users.findFirst({
-    where: eq(users.id, session.user.id),
+  const row = await db.query.users.findFirst({
+    where: eq(users.id, user.id),
     columns: { apiKeyHash: true },
   });
 
-  return { configured: !!user?.apiKeyHash };
+  return { configured: !!row?.apiKeyHash };
 }
 
 // ── Rate limits ──────────────────────────────────────────────────
@@ -70,13 +70,13 @@ export async function getRateLimitsAction(): Promise<{
   perDay: number;
   error?: string;
 }> {
-  const session = await auth();
-  if (!session?.user?.id) {
+  const user = await getCurrentUser();
+  if (!user) {
     return { perMinute: 60, perHour: 1000, perDay: 10000, error: "Not authenticated" };
   }
 
-  const user = await db.query.users.findFirst({
-    where: eq(users.id, session.user.id),
+  const row = await db.query.users.findFirst({
+    where: eq(users.id, user.id),
     columns: {
       rateLimitPerMinute: true,
       rateLimitPerHour: true,
@@ -85,9 +85,9 @@ export async function getRateLimitsAction(): Promise<{
   });
 
   return {
-    perMinute: user?.rateLimitPerMinute ?? 60,
-    perHour: user?.rateLimitPerHour ?? 1000,
-    perDay: user?.rateLimitPerDay ?? 10000,
+    perMinute: row?.rateLimitPerMinute ?? 60,
+    perHour: row?.rateLimitPerHour ?? 1000,
+    perDay: row?.rateLimitPerDay ?? 10000,
   };
 }
 
@@ -96,8 +96,8 @@ export async function saveRateLimitsAction(
   perHour: number,
   perDay: number
 ): Promise<{ error?: string }> {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "Not authenticated" };
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
 
   await db
     .update(users)
@@ -106,7 +106,7 @@ export async function saveRateLimitsAction(
       rateLimitPerHour: Math.max(1, Math.min(100000, perHour)),
       rateLimitPerDay: Math.max(1, Math.min(1000000, perDay)),
     })
-    .where(eq(users.id, session.user.id));
+    .where(eq(users.id, user.id));
 
   return {};
 }

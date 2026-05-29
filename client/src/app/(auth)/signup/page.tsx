@@ -1,5 +1,13 @@
-import { SignupForm } from "@/components/auth/signup-form";
+"use client";
+
+// Signup is handled entirely by Privy — redirect to login.
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function SignupPage() {
-  return <SignupForm />;
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/login");
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
 }

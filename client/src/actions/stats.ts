@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@/auth";
+import { getCurrentUser } from "@/lib/privy";
 import { db } from "@/db";
 import { apiCalls, agents } from "@/db/schema";
 import { eq, gte, and, desc, count } from "drizzle-orm";
@@ -34,10 +34,10 @@ export interface UsageStats {
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export async function getUsageStatsAction(): Promise<UsageStats | null> {
-  const session = await auth();
-  if (!session?.user?.id) return null;
+  const user = await getCurrentUser();
+  if (!user) return null;
 
-  const userId = session.user.id;
+  const userId = user.id;
   const now = new Date();
 
   const sevenDaysAgo = new Date(now);

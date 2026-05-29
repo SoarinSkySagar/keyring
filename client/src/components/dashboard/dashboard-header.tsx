@@ -1,5 +1,5 @@
-import { auth } from "@/auth";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getCurrentUser } from "@/lib/privy";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,24 +8,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { signOutAction } from "@/actions/auth";
-import { LogOut, Settings } from "lucide-react";
+import { SignOutButton } from "@/components/auth/sign-out-button";
+import { Settings } from "lucide-react";
 
 export async function DashboardHeader({ title }: { title: string }) {
-  const session = await auth();
-  const user = session?.user;
+  const user = await getCurrentUser();
 
-  // Display name depends on auth method
-  const displayName = (() => {
-    if (user?.provider === "metamask" && user.walletAddress) {
-      // Shorten wallet address: 0x1234…abcd
-      const addr = user.walletAddress;
-      return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
-    }
-    if (user?.provider === "google" && user.name) return user.name;
-    return user?.email ?? "Account";
-  })();
-
+  const displayName = user?.name ?? user?.email ?? "Account";
   const initials = displayName.slice(0, 2).toUpperCase();
 
   return (
@@ -45,12 +34,13 @@ export async function DashboardHeader({ title }: { title: string }) {
             <p className="text-sm font-medium text-foreground leading-tight">
               {displayName}
             </p>
-            <p className="text-xs text-muted-foreground leading-tight">
-              {user?.email}
-            </p>
+            {user?.email && (
+              <p className="text-xs text-muted-foreground leading-tight">
+                {user.email}
+              </p>
+            )}
           </div>
           <Avatar className="w-8 h-8 border border-border">
-            <AvatarImage src={user?.image ?? ""} alt={displayName} />
             <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
               {initials}
             </AvatarFallback>
@@ -59,8 +49,10 @@ export async function DashboardHeader({ title }: { title: string }) {
 
         <DropdownMenuContent align="end" className="w-52">
           <DropdownMenuLabel className="font-normal">
-            <p className="font-medium text-sm">{user?.name ?? "Account"}</p>
-            <p className="text-xs text-muted-foreground">{user?.email}</p>
+            <p className="font-medium text-sm">{displayName}</p>
+            {user?.email && (
+              <p className="text-xs text-muted-foreground">{user.email}</p>
+            )}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem>
@@ -72,16 +64,9 @@ export async function DashboardHeader({ title }: { title: string }) {
             </a>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <form action={signOutAction} className="w-full">
-            <DropdownMenuItem className="w-full p-0">
-              <button
-                type="submit"
-                className="flex items-center gap-2 w-full px-1.5 py-1 text-destructive"
-              >
-                <LogOut className="w-4 h-4" /> Sign out
-              </button>
-            </DropdownMenuItem>
-          </form>
+          <DropdownMenuItem className="w-full p-0">
+            <SignOutButton />
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </header>

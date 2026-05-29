@@ -4,20 +4,17 @@ import {
   timestamp,
   integer,
   boolean,
-  primaryKey,
 } from "drizzle-orm/pg-core";
 
-// ── Auth.js required tables ─────────────────────────────────────
+// ── Users ───────────────────────────────────────────────────────
 
 export const users = pgTable("users", {
   id: text("id")
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
-  name: text("name"), // required by @auth/drizzle-adapter; always null for email/MetaMask signups
+  privyId: text("privy_id").unique(), // Privy DID — primary auth identifier
+  name: text("name"),
   email: text("email").unique(),
-  emailVerified: timestamp("email_verified", { mode: "date" }),
-  image: text("image"),
-  passwordHash: text("password_hash"), // null for Google / MetaMask users
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
   // API key for agent connections — only the SHA-256 hash is stored
   apiKeyHash: text("api_key_hash").unique(),
@@ -25,74 +22,6 @@ export const users = pgTable("users", {
   rateLimitPerMinute: integer("rate_limit_per_minute").default(60).notNull(),
   rateLimitPerHour: integer("rate_limit_per_hour").default(1000).notNull(),
   rateLimitPerDay: integer("rate_limit_per_day").default(10000).notNull(),
-});
-
-// Stores OAuth + custom credential account links.
-// provider values: "credentials" | "google" | "metamask"
-export const accounts = pgTable(
-  "accounts",
-  {
-    userId: text("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    type: text("type").notNull(),
-    provider: text("provider").notNull(),
-    providerAccountId: text("provider_account_id").notNull(),
-    refresh_token: text("refresh_token"),
-    access_token: text("access_token"),
-    expires_at: integer("expires_at"),
-    token_type: text("token_type"),
-    scope: text("scope"),
-    id_token: text("id_token"),
-    session_state: text("session_state"),
-  },
-  (account) => [
-    primaryKey({ columns: [account.provider, account.providerAccountId] }),
-  ]
-);
-
-export const sessions = pgTable("sessions", {
-  sessionToken: text("session_token").primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  expires: timestamp("expires", { mode: "date" }).notNull(),
-});
-
-export const verificationTokens = pgTable(
-  "verification_tokens",
-  {
-    identifier: text("identifier").notNull(),
-    token: text("token").notNull(),
-    expires: timestamp("expires", { mode: "date" }).notNull(),
-  },
-  (vt) => [primaryKey({ columns: [vt.identifier, vt.token] })]
-);
-
-// ── Email OTP codes ─────────────────────────────────────────────
-// passwordHash is populated on signup; absent on login.
-
-export const otpCodes = pgTable("otp_codes", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  email: text("email").notNull(),
-  code: text("code").notNull(),
-  passwordHash: text("password_hash"), // set during sign-up flow
-  expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
-});
-
-// ── SIWE nonces (MetaMask sign-in) ──────────────────────────────
-
-export const siweNonces = pgTable("siwe_nonces", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  address: text("address").notNull(), // lowercase hex
-  nonce: text("nonce").notNull(),
-  expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
 });
 
 // ── Keyring domain tables ───────────────────────────────────────
@@ -171,4 +100,3 @@ export type Grant = typeof grants.$inferSelect;
 export type AuditEvent = typeof auditEvents.$inferSelect;
 export type ApiCall = typeof apiCalls.$inferSelect;
 export type Agent = typeof agents.$inferSelect;
-// name is intentionally omitted from the schema — we identify users by email only
