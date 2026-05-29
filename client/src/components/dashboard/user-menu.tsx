@@ -47,18 +47,6 @@ export function UserMenu() {
   const embeddedFromAccounts = walletAccounts.find(isEmbedded);
   const walletAddress = embeddedFromHook?.address ?? embeddedFromAccounts?.address ?? null;
 
-  // Debug: log wallet data so you can inspect in browser DevTools.
-  useEffect(() => {
-    if (!user) return;
-    console.log("[UserMenu] wallets from useWallets():", wallets.map(w => ({
-      address: w.address, walletClientType: w.walletClientType, connectorType: w.connectorType,
-    })));
-    console.log("[UserMenu] wallet linkedAccounts:", walletAccounts.map(w => ({
-      address: w.address, walletClientType: w.walletClientType, connectorType: w.connectorType,
-    })));
-    console.log("[UserMenu] resolved embedded wallet address:", walletAddress);
-  }, [user, wallets]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // If no embedded wallet found after Privy is ready, create one.
   // This handles users who authenticated via external wallet before
   // createOnLogin was configured, or when it silently failed.
