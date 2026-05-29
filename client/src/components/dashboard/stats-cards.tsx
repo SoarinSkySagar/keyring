@@ -1,20 +1,18 @@
 import { KeyRound, Zap, Gauge, Cpu } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const stats = [
-  { label: "Active Grants", icon: KeyRound },
-  { label: "Operations This Week", icon: Zap },
-  { label: "Budget Utilisation", icon: Gauge },
-  { label: "Active Agents", icon: Cpu },
-];
+interface Props {
+  isLoading?: boolean;
+  totalThisWeek: number | null;
+}
 
-export function StatsCards({ isLoading = false }: { isLoading?: boolean }) {
+export function StatsCards({ isLoading = false, totalThisWeek }: Props) {
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {stats.map((stat) => (
+        {Array.from({ length: 4 }).map((_, i) => (
           <div
-            key={stat.label}
+            key={i}
             className="rounded-xl border border-border bg-card p-5 flex flex-col gap-3"
           >
             <div className="flex items-center justify-between">
@@ -30,6 +28,38 @@ export function StatsCards({ isLoading = false }: { isLoading?: boolean }) {
       </div>
     );
   }
+
+  const stats = [
+    {
+      label: "Active Grants",
+      icon: KeyRound,
+      value: "—",
+      sub: "No data yet",
+    },
+    {
+      label: "Operations This Week",
+      icon: Zap,
+      value: totalThisWeek !== null ? String(totalThisWeek) : "—",
+      sub:
+        totalThisWeek !== null
+          ? totalThisWeek === 0
+            ? "No calls yet"
+            : "API calls in last 7 days"
+          : "No data yet",
+    },
+    {
+      label: "Budget Utilisation",
+      icon: Gauge,
+      value: "—",
+      sub: "No data yet",
+    },
+    {
+      label: "Active Agents",
+      icon: Cpu,
+      value: "—",
+      sub: "No data yet",
+    },
+  ];
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -51,9 +81,9 @@ export function StatsCards({ isLoading = false }: { isLoading?: boolean }) {
               className="text-3xl font-extrabold text-foreground leading-none"
               style={{ fontFamily: "var(--font-syne)" }}
             >
-              —
+              {stat.value}
             </p>
-            <p className="text-xs mt-1 text-muted-foreground">No data yet</p>
+            <p className="text-xs mt-1 text-muted-foreground">{stat.sub}</p>
           </div>
         </div>
       ))}

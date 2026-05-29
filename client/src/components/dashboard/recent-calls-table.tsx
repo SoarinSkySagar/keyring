@@ -1,4 +1,4 @@
-import { CheckCircle2, XCircle, Clock, Radio } from "lucide-react";
+import { CheckCircle2, XCircle, Radio } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -8,37 +8,41 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { RecentCall } from "@/actions/stats";
 
-// Replace with real API call
-const recentCalls: {
-  id: string;
-  agent: string;
-  agentId: string;
-  secret: string;
-  status: "success" | "denied" | "pending";
-  latency: string;
-  time: string;
-}[] = [];
+interface Props {
+  isLoading?: boolean;
+  calls: RecentCall[];
+}
 
-const statusConfig = {
-  success: {
-    icon: CheckCircle2,
-    label: "Success",
-    bg: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
-  },
-  denied: {
-    icon: XCircle,
-    label: "Denied",
-    bg: "bg-destructive/10 text-destructive border-destructive/20",
-  },
-  pending: {
-    icon: Clock,
-    label: "Pending",
-    bg: "bg-amber-500/10 text-amber-500 border-amber-500/20",
-  },
-};
+function formatRelTime(date: Date): string {
+  const diff = Date.now() - date.getTime();
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
 
-export function RecentCallsTable({ isLoading = false }: { isLoading?: boolean }) {
+function StatusBadge({ status }: { status: number }) {
+  const ok = status >= 200 && status < 300;
+  const Icon = ok ? CheckCircle2 : XCircle;
+  const cls = ok
+    ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+    : "bg-destructive/10 text-destructive border-destructive/20";
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${cls}`}
+    >
+      <Icon className="w-3 h-3" strokeWidth={2} />
+      {status}
+    </span>
+  );
+}
+
+export function RecentCallsTable({ isLoading = false, calls }: Props) {
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
       <div className="flex items-center justify-between px-5 py-4 border-b border-border">
@@ -50,7 +54,7 @@ export function RecentCallsTable({ isLoading = false }: { isLoading?: boolean })
             Recent API Calls
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Latest secret access requests from your agents
+            Latest requests authenticated with your API key
           </p>
         </div>
         <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full flex items-center gap-1.5">
@@ -65,14 +69,13 @@ export function RecentCallsTable({ isLoading = false }: { isLoading?: boolean })
             <div key={i} className="flex items-center gap-4 px-5 py-3.5">
               <Skeleton className="h-4 w-24" />
               <Skeleton className="h-4 w-28 flex-1" />
-              <Skeleton className="h-4 w-20 hidden md:block" />
               <Skeleton className="h-5 w-16 rounded-full" />
               <Skeleton className="h-4 w-12 hidden lg:block" />
               <Skeleton className="h-4 w-16 ml-auto" />
             </div>
           ))}
         </div>
-      ) : recentCalls.length === 0 ? (
+      ) : calls.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 gap-3">
           <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-muted border border-border">
             <Radio className="w-5 h-5 text-muted-foreground" strokeWidth={1.5} />
@@ -89,55 +92,42 @@ export function RecentCallsTable({ isLoading = false }: { isLoading?: boolean })
           <TableHeader>
             <TableRow>
               <TableHead>Request ID</TableHead>
-              <TableHead>Agent</TableHead>
-              <TableHead className="hidden md:table-cell">Secret</TableHead>
+              <TableHead>Path</TableHead>
+              <TableHead className="hidden md:table-cell">Method</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="hidden lg:table-cell">Latency</TableHead>
               <TableHead className="text-right">Time</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {recentCalls.map((call) => {
-              const { icon: StatusIcon, bg } = statusConfig[call.status];
-              return (
-                <TableRow key={call.id}>
-                  <TableCell>
-                    <span className="font-mono text-xs text-muted-foreground">
-                      {call.id}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        {call.agent}
-                      </p>
-                      <p className="text-xs text-muted-foreground font-mono">
-                        {call.agentId}
-                      </p>
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground">
-                      {call.secret}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <span
-                      className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${bg}`}
-                    >
-                      <StatusIcon className="w-3 h-3" strokeWidth={2} />
-                      {statusConfig[call.status].label}
-                    </span>
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
-                    {call.latency}
-                  </TableCell>
-                  <TableCell className="text-right text-xs text-muted-foreground">
-                    {call.time}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+            {calls.map((call) => (
+              <TableRow key={call.id}>
+                <TableCell>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {call.id.slice(0, 8)}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <span className="font-mono text-xs text-foreground">
+                    {call.path || "/"}
+                  </span>
+                </TableCell>
+                <TableCell className="hidden md:table-cell">
+                  <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground">
+                    {call.method}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <StatusBadge status={call.status} />
+                </TableCell>
+                <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
+                  {call.latencyMs !== null ? `${call.latencyMs}ms` : "—"}
+                </TableCell>
+                <TableCell className="text-right text-xs text-muted-foreground">
+                  {formatRelTime(call.createdAt)}
+                </TableCell>
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       )}

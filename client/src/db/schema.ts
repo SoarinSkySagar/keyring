@@ -128,9 +128,27 @@ export const auditEvents = pgTable("audit_events", {
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
 });
 
+// ── API call log ─────────────────────────────────────────────────
+// One row per request that passes authentication at /api/[apiKey].
+
+export const apiCalls = pgTable("api_calls", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  path: text("path").notNull().default(""),      // URL path after /api/<key>/
+  method: text("method").notNull().default("GET"),
+  status: integer("status").notNull().default(200),
+  latencyMs: integer("latency_ms"),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});
+
 // ── Types ───────────────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
 export type Grant = typeof grants.$inferSelect;
 export type AuditEvent = typeof auditEvents.$inferSelect;
+export type ApiCall = typeof apiCalls.$inferSelect;
 // name is intentionally omitted from the schema — we identify users by email only

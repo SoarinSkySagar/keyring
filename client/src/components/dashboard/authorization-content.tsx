@@ -254,15 +254,18 @@ export function AuthorizationContent() {
             Add this to your agent&apos;s environment to connect to Keyring:
           </p>
           {connectionUrl ? (
-            <div className="relative rounded-lg bg-muted/50 border border-border p-4 font-mono text-xs text-muted-foreground">
-              <div className="absolute top-3 right-3">
+            <div className="relative rounded-lg bg-muted/50 border border-border overflow-hidden">
+              <div className="absolute top-3 right-3 z-10">
                 <CopyButton value={`KEYRING_URL=${connectionUrl}`} />
               </div>
-              <p className="text-emerald-500"># Add to your .env file</p>
-              <p className="mt-1">
-                <span className="text-primary">KEYRING_URL</span>=
-                <span className="text-foreground">{connectionUrl}</span>
-              </p>
+              <div className="overflow-x-auto p-4 pr-10">
+                <pre className="font-mono text-xs text-muted-foreground whitespace-pre">
+                  <span className="text-emerald-500">{`# Add to your .env file\n`}</span>
+                  <span className="text-primary">KEYRING_URL</span>
+                  <span>=</span>
+                  <span className="text-foreground">{connectionUrl}</span>
+                </pre>
+              </div>
             </div>
           ) : (
             <div className="rounded-lg bg-muted/30 border border-dashed border-border p-5 flex flex-col items-center justify-center gap-2 text-center">

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
-import { createHash } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { users, apiCalls } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 // ── In-memory sliding-window rate limiter ────────────────────────
@@ -27,7 +27,6 @@ function checkRateLimit(
   const now = Date.now();
   const w = getWindow(userId);
 
-  // Prune expired timestamps
   const minAgo = now - 60_000;
   const hourAgo = now - 3_600_000;
   const dayAgo = now - 86_400_000;
@@ -36,24 +35,34 @@ function checkRateLimit(
   w.day = w.day.filter((t) => t > dayAgo);
 
   if (w.minute.length >= limits.perMinute) {
-    // Retry after oldest request in this window expires
-    const retryAfter = Math.ceil((w.minute[0] + 60_000 - now) / 1000);
-    return { allowed: false, retryAfter };
+    return { allowed: false, retryAfter: Math.ceil((w.minute[0] + 60_000 - now) / 1000) };
   }
   if (w.hour.length >= limits.perHour) {
-    const retryAfter = Math.ceil((w.hour[0] + 3_600_000 - now) / 1000);
-    return { allowed: false, retryAfter };
+    return { allowed: false, retryAfter: Math.ceil((w.hour[0] + 3_600_000 - now) / 1000) };
   }
   if (w.day.length >= limits.perDay) {
-    const retryAfter = Math.ceil((w.day[0] + 86_400_000 - now) / 1000);
-    return { allowed: false, retryAfter };
+    return { allowed: false, retryAfter: Math.ceil((w.day[0] + 86_400_000 - now) / 1000) };
   }
 
-  // Record this request
   w.minute.push(now);
   w.hour.push(now);
   w.day.push(now);
   return { allowed: true };
+}
+
+// ── Call recorder ────────────────────────────────────────────────
+
+async function recordCall(
+  userId: string,
+  method: string,
+  path: string,
+  status: number,
+  latencyMs: number
+) {
+  // Fire-and-forget: don't let logging failures affect the response
+  db.insert(apiCalls)
+    .values({ id: randomUUID(), userId, path, method, status, latencyMs })
+    .catch((err) => console.error("[api-calls] log failed", err));
 }
 
 // ── Handler ──────────────────────────────────────────────────────
@@ -62,13 +71,17 @@ async function handle(
   request: NextRequest,
   { params }: { params: Promise<{ apiKey: string }> }
 ): Promise<Response> {
+  const start = Date.now();
   const { apiKey } = await params;
+
+  // Reconstruct the sub-path (everything after /api/<key>)
+  const url = new URL(request.url);
+  const subPath = url.pathname.replace(/^\/api\/[^/]+/, "") || "/";
 
   if (!apiKey?.startsWith("kr_")) {
     return Response.json({ error: "Invalid API key format" }, { status: 401 });
   }
 
-  // Hash the incoming key and look up the user
   const hash = createHash("sha256").update(apiKey).digest("hex");
 
   const user = await db.query.users.findFirst({
@@ -85,7 +98,6 @@ async function handle(
     return Response.json({ error: "Invalid API key" }, { status: 401 });
   }
 
-  // Check rate limits
   const { allowed, retryAfter } = checkRateLimit(user.id, {
     perMinute: user.rateLimitPerMinute,
     perHour: user.rateLimitPerHour,
@@ -93,6 +105,7 @@ async function handle(
   });
 
   if (!allowed) {
+    await recordCall(user.id, request.method, subPath, 429, Date.now() - start);
     return Response.json(
       { error: "Rate limit exceeded" },
       {
@@ -107,8 +120,9 @@ async function handle(
     );
   }
 
-  // Auth passed, rate limit OK.
-  // Future route logic goes here.
+  const latency = Date.now() - start;
+  await recordCall(user.id, request.method, subPath, 200, latency);
+
   return Response.json(
     { ok: true, userId: user.id },
     {

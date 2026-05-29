@@ -1,11 +1,12 @@
-"use client";
-
 import { BarChart2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { WeeklyPoint } from "@/actions/stats";
 
-// Replace with real API call
-const weeklyData: { day: string; calls: number }[] = [];
-const hourlyData: number[] = [];
+interface Props {
+  isLoading?: boolean;
+  weeklyData: WeeklyPoint[];
+  hourlyData: number[];
+}
 
 function EmptyChart({ label }: { label: string }) {
   return (
@@ -19,7 +20,7 @@ function EmptyChart({ label }: { label: string }) {
   );
 }
 
-export function UsageChart({ isLoading = false }: { isLoading?: boolean }) {
+export function UsageChart({ isLoading = false, weeklyData, hourlyData }: Props) {
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -44,10 +45,11 @@ export function UsageChart({ isLoading = false }: { isLoading?: boolean }) {
     );
   }
 
-  const hasWeekly = weeklyData.length > 0;
-  const hasHourly = hourlyData.length > 0;
-  const maxWeekly = hasWeekly ? Math.max(...weeklyData.map((d) => d.calls)) : 1;
-  const maxHourly = hasHourly ? Math.max(...hourlyData) : 1;
+  const hasWeekly = weeklyData.some((d) => d.calls > 0);
+  const hasHourly = hourlyData.some((v) => v > 0);
+  const maxWeekly = hasWeekly ? Math.max(...weeklyData.map((d) => d.calls), 1) : 1;
+  const maxHourly = hasHourly ? Math.max(...hourlyData, 1) : 1;
+  const totalWeek = weeklyData.reduce((s, d) => s + d.calls, 0);
 
   const svgW = 600;
   const svgH = 120;
@@ -79,6 +81,9 @@ export function UsageChart({ isLoading = false }: { isLoading?: boolean }) {
         ].join(" ")
       : "";
 
+  // Current hour for highlighting (server-rendered in UTC; acceptable for bar highlight)
+  const currentHour = new Date().getHours();
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       {/* Weekly calls line chart */}
@@ -92,9 +97,7 @@ export function UsageChart({ isLoading = false }: { isLoading?: boolean }) {
               className="text-2xl font-extrabold text-foreground mt-0.5"
               style={{ fontFamily: "var(--font-syne)" }}
             >
-              {hasWeekly
-                ? weeklyData.reduce((s, d) => s + d.calls, 0)
-                : "—"}
+              {hasWeekly ? totalWeek.toLocaleString() : "—"}
             </p>
           </div>
         </div>
@@ -197,11 +200,11 @@ export function UsageChart({ isLoading = false }: { isLoading?: boolean }) {
             <div className="flex items-end gap-0.5 h-20">
               {hourlyData.map((v, i) => {
                 const h = (v / maxHourly) * 100;
-                const isCurrentHour = i === new Date().getHours();
+                const isCurrentHour = i === currentHour;
                 return (
                   <div
                     key={i}
-                    className="flex-1 rounded-sm transition-all"
+                    className="flex-1 rounded-sm"
                     style={{
                       height: `${Math.max(h, 4)}%`,
                       background: isCurrentHour

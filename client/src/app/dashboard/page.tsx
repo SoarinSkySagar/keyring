@@ -4,6 +4,7 @@ import { StatsCards } from "@/components/dashboard/stats-cards";
 import { UsageChart } from "@/components/dashboard/usage-chart";
 import { RecentCallsTable } from "@/components/dashboard/recent-calls-table";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { getUsageStatsAction } from "@/actions/stats";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -11,6 +12,8 @@ export default async function DashboardPage() {
     session?.user?.name?.split(" ")[0] ??
     session?.user?.email?.split("@")[0] ??
     "there";
+
+  const stats = await getUsageStatsAction();
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -33,17 +36,20 @@ export default async function DashboardPage() {
 
         {/* Stats */}
         <ErrorBoundary>
-          <StatsCards />
+          <StatsCards totalThisWeek={stats?.totalThisWeek ?? null} />
         </ErrorBoundary>
 
         {/* Charts */}
         <ErrorBoundary>
-          <UsageChart />
+          <UsageChart
+            weeklyData={stats?.weekly ?? []}
+            hourlyData={stats?.hourly ?? []}
+          />
         </ErrorBoundary>
 
         {/* Recent Calls */}
         <ErrorBoundary>
-          <RecentCallsTable />
+          <RecentCallsTable calls={stats?.recentCalls ?? []} />
         </ErrorBoundary>
       </main>
     </div>
