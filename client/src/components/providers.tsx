@@ -1,6 +1,7 @@
 "use client";
 
 import { PrivyProvider } from "@privy-io/react-auth";
+import { SmartWalletsProvider } from "@privy-io/react-auth/smart-wallets";
 import { ThemeProvider } from "./theme-provider";
 import { TooltipProvider } from "./ui/tooltip";
 import { Toaster } from "./ui/sonner";
@@ -20,17 +21,19 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
       }}
     >
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="dark"
-        enableSystem={false}
-        disableTransitionOnChange
-      >
-        <TooltipProvider delay={300}>
-          {children}
-          <Toaster richColors position="top-right" />
-        </TooltipProvider>
-      </ThemeProvider>
+      <SmartWalletsProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem={false}
+          disableTransitionOnChange
+        >
+          <TooltipProvider delay={300}>
+            {children}
+            <Toaster richColors position="top-right" />
+          </TooltipProvider>
+        </ThemeProvider>
+      </SmartWalletsProvider>
     </PrivyProvider>
   );
 }
