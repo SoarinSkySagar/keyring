@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { IRegistrationWorkflows } from "@storyprotocol/periphery/interfaces/workflows/IRegistrationWorkflows.sol";
-import { WorkflowStructs } from "@storyprotocol/periphery/lib/WorkflowStructs.sol";
-import { ISPGNFT } from "@storyprotocol/periphery/interfaces/ISPGNFT.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { IRegistrationWorkflows } from "./interfaces/story/IRegistrationWorkflows.sol";
+import { WorkflowStructs }         from "./interfaces/story/WorkflowStructs.sol";
+import { ISPGNFT }                  from "./interfaces/story/ISPGNFT.sol";
+import { Ownable }                  from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title  AgentRegistry
 /// @notice Registers AI agents as Story Protocol IP Assets. Stores the wallet→ipId
@@ -44,14 +44,12 @@ contract AgentRegistry is Ownable {
     // ──────────────────────────────────────────────────────────────── events ──
 
     event AgentCreated(address indexed ipId, address indexed wallet, address indexed agentOwner, string name);
-    event AgentDeactivated(address indexed ipId);
-    event AgentWalletUpdated(address indexed ipId, address oldWallet, address newWallet);
+    event AgentDeleted(address indexed ipId);
 
     // ──────────────────────────────────────────────────────────────── errors ──
 
     error NotAgentOwner(address ipId);
     error AgentAlreadyRegistered(address wallet);
-    error AgentNotFound(address ipId);
     error ZeroAddress();
 
     // ──────────────────────────────────────────────────────── constructor ──
@@ -124,27 +122,20 @@ contract AgentRegistry is Ownable {
         emit AgentCreated(ipId, agentWallet, msg.sender, name);
     }
 
-    /// @notice Deactivates an agent — future CDR reads will be denied.
-    /// @dev    Does NOT delete grant records; KeyringAccessCondition checks active state.
-    function deactivateAgent(address ipId) external {
+    /// @notice Permanently deletes an agent. Clears wallet mapping and marks inactive.
+    /// @dev    The underlying IP Asset NFT cannot be burned from here — it remains on
+    ///         Story Protocol — but Keyring treats the agent as gone: all CDR reads
+    ///         will be denied and the wallet can be reregistered to a new agent.
+    ///         Grant records in KeyringAccessCondition are not cleared here; they
+    ///         become inert because isActiveAgent() returns false.
+    function deleteAgent(address ipId) external {
         if (agents[ipId].owner != msg.sender) revert NotAgentOwner(ipId);
+
+        address wallet = agents[ipId].wallet;
+        delete walletToIpId[wallet];
         agents[ipId].active = false;
-        emit AgentDeactivated(ipId);
-    }
 
-    /// @notice Updates the wallet address an agent uses to call CDR.
-    /// @dev    Old wallet→ipId mapping is cleared; new one is set.
-    function updateAgentWallet(address ipId, address newWallet) external {
-        if (agents[ipId].owner != msg.sender) revert NotAgentOwner(ipId);
-        if (newWallet == address(0)) revert ZeroAddress();
-        if (walletToIpId[newWallet] != address(0)) revert AgentAlreadyRegistered(newWallet);
-
-        address oldWallet = agents[ipId].wallet;
-        delete walletToIpId[oldWallet];
-        walletToIpId[newWallet] = ipId;
-        agents[ipId].wallet = newWallet;
-
-        emit AgentWalletUpdated(ipId, oldWallet, newWallet);
+        emit AgentDeleted(ipId);
     }
 
     // ─────────────────────────────────────────────── external view ──

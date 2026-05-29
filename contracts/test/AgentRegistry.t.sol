@@ -81,48 +81,49 @@ contract AgentRegistryTest is Test {
         assertFalse(registry.isActiveAgent(address(0xdead)));
     }
 
-    // ── deactivateAgent ──────────────────────────────────────────────────────
+    // ── deleteAgent ──────────────────────────────────────────────────────────
 
-    function test_deactivateAgent_setsActiveFalse() public {
+    function test_deleteAgent_setsActiveFalse() public {
         vm.prank(owner);
         address ipId = registry.createAgent("TestAgent", agentWallet);
 
         vm.prank(owner);
-        registry.deactivateAgent(ipId);
+        registry.deleteAgent(ipId);
 
         assertFalse(registry.isActiveAgent(ipId));
     }
 
-    function test_deactivateAgent_revertsIfNotOwner() public {
+    function test_deleteAgent_clearsWalletMapping() public {
+        vm.prank(owner);
+        address ipId = registry.createAgent("TestAgent", agentWallet);
+
+        vm.prank(owner);
+        registry.deleteAgent(ipId);
+
+        assertEq(registry.getIpId(agentWallet), address(0), "wallet mapping cleared");
+    }
+
+    function test_deleteAgent_walletCanBeReusedAfterDelete() public {
+        vm.prank(owner);
+        address ipId1 = registry.createAgent("Agent1", agentWallet);
+
+        vm.prank(owner);
+        registry.deleteAgent(ipId1);
+
+        // Same wallet can now register a new agent
+        vm.prank(owner);
+        address ipId2 = registry.createAgent("Agent2", agentWallet);
+
+        assertTrue(ipId2 != address(0));
+        assertEq(registry.getIpId(agentWallet), ipId2);
+    }
+
+    function test_deleteAgent_revertsIfNotOwner() public {
         vm.prank(owner);
         address ipId = registry.createAgent("TestAgent", agentWallet);
 
         vm.prank(makeAddr("attacker"));
         vm.expectRevert(abi.encodeWithSelector(AgentRegistry.NotAgentOwner.selector, ipId));
-        registry.deactivateAgent(ipId);
-    }
-
-    // ── updateAgentWallet ────────────────────────────────────────────────────
-
-    function test_updateAgentWallet_updatesMapping() public {
-        vm.prank(owner);
-        address ipId = registry.createAgent("TestAgent", agentWallet);
-
-        address newWallet = makeAddr("newWallet");
-        vm.prank(owner);
-        registry.updateAgentWallet(ipId, newWallet);
-
-        assertEq(registry.getIpId(agentWallet), address(0), "old wallet cleared");
-        assertEq(registry.getIpId(newWallet), ipId, "new wallet set");
-        assertEq(registry.getAgent(ipId).wallet, newWallet);
-    }
-
-    function test_updateAgentWallet_revertsIfNotOwner() public {
-        vm.prank(owner);
-        address ipId = registry.createAgent("TestAgent", agentWallet);
-
-        vm.prank(makeAddr("attacker"));
-        vm.expectRevert(abi.encodeWithSelector(AgentRegistry.NotAgentOwner.selector, ipId));
-        registry.updateAgentWallet(ipId, makeAddr("newWallet"));
+        registry.deleteAgent(ipId);
     }
 }
