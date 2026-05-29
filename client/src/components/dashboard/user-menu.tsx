@@ -24,21 +24,26 @@ export function UserMenu() {
 
   // For wallet-login users who have no email/name, show their truncated
   // external wallet address instead of the generic "Account" fallback.
+  // connectorType === 'embedded' covers both 'privy' and 'privy-v2' wallet
+  // client types; checking walletClientType === 'privy' alone misses v2.
   const walletAccounts = user?.linkedAccounts?.filter(
     (acc): acc is import("@privy-io/react-auth").WalletWithMetadata =>
       acc.type === "wallet",
   ) ?? [];
-  const externalWallet = walletAccounts.find((w) => w.walletClientType !== "privy");
+  const externalWallet = walletAccounts.find((w) => w.connectorType !== "embedded");
   const externalAddress = externalWallet?.address ?? null;
 
   const displayName = name ?? email ?? (externalAddress ? truncate(externalAddress) : "Account");
   const initials = (name ?? email ?? externalAddress ?? "AC").slice(0, 2).toUpperCase();
 
   // Prefer the live connected wallet from useWallets(); fall back to
-  // linkedAccounts so the address shows even when the session hasn't
-  // re-connected the embedded wallet yet (e.g. wallet-login users).
-  const embeddedFromHook = wallets.find((w) => w.walletClientType === "privy");
-  const embeddedFromAccounts = walletAccounts.find((w) => w.walletClientType === "privy");
+  // linkedAccounts so the address shows even when the Privy session hasn't
+  // re-connected the embedded wallet (common for external-wallet-login users).
+  const isEmbedded = (w: { connectorType?: string; walletClientType?: string }) =>
+    w.connectorType === "embedded" || (w.walletClientType ?? "").startsWith("privy");
+
+  const embeddedFromHook = wallets.find(isEmbedded);
+  const embeddedFromAccounts = walletAccounts.find(isEmbedded);
   const walletAddress = embeddedFromHook?.address ?? embeddedFromAccounts?.address ?? null;
 
   const copyAddress = () => {
