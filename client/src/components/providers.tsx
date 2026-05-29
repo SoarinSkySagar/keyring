@@ -5,6 +5,7 @@ import { SmartWalletsProvider } from "@privy-io/react-auth/smart-wallets";
 import { ThemeProvider } from "./theme-provider";
 import { TooltipProvider } from "./ui/tooltip";
 import { Toaster } from "./ui/sonner";
+import { base } from "viem/chains";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -16,6 +17,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
           theme: "dark",
           accentColor: "#8b5cf6",
         },
+        // Default chain for smart wallets — must match what you enable in
+        // Privy Dashboard → Wallets → Smart Wallets → Supported networks.
+        defaultChain: base,
+        supportedChains: [base],
         embeddedWallets: {
           ethereum: { createOnLogin: "all-users" },
         },
