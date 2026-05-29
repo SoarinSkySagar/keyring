@@ -1,4 +1,7 @@
-import { CheckCircle2, XCircle, Radio, Bot } from "lucide-react";
+"use client";
+
+import { useState } from "react";
+import { CheckCircle2, XCircle, Radio, Bot, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -9,6 +12,8 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { RecentCall } from "@/actions/stats";
+
+const PAGE_SIZE = 10;
 
 interface Props {
   isLoading?: boolean;
@@ -41,8 +46,16 @@ function StatusBadge({ status }: { status: number }) {
 }
 
 export function RecentCallsTable({ isLoading = false, calls }: Props) {
+  const [page, setPage] = useState(0);
+
+  const totalPages = Math.max(1, Math.ceil(calls.length / PAGE_SIZE));
+  const paginated = calls.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+  const from = calls.length === 0 ? 0 : page * PAGE_SIZE + 1;
+  const to = Math.min((page + 1) * PAGE_SIZE, calls.length);
+
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
+      {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-border">
         <div>
           <h3
@@ -61,9 +74,10 @@ export function RecentCallsTable({ isLoading = false, calls }: Props) {
         </span>
       </div>
 
+      {/* Body */}
       {isLoading ? (
         <div className="divide-y divide-border">
-          {Array.from({ length: 5 }).map((_, i) => (
+          {Array.from({ length: PAGE_SIZE }).map((_, i) => (
             <div key={i} className="flex items-center gap-4 px-5 py-3.5">
               <Skeleton className="h-4 w-20" />
               <Skeleton className="h-4 w-28 flex-1" />
@@ -87,53 +101,83 @@ export function RecentCallsTable({ isLoading = false, calls }: Props) {
           </div>
         </div>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Request ID</TableHead>
-              <TableHead>Path</TableHead>
-              <TableHead className="hidden sm:table-cell">Agent</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="hidden lg:table-cell">Latency</TableHead>
-              <TableHead className="text-right">Time</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {calls.map((call) => (
-              <TableRow key={call.id}>
-                <TableCell>
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {call.id.slice(0, 8)}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <span className="font-mono text-xs text-foreground">
-                    {call.path || "/"}
-                  </span>
-                </TableCell>
-                <TableCell className="hidden sm:table-cell">
-                  {call.agentName ? (
-                    <span className="inline-flex items-center gap-1.5 text-xs text-foreground">
-                      <Bot className="w-3 h-3 text-primary shrink-0" strokeWidth={1.8} />
-                      {call.agentName}
-                    </span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">—</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <StatusBadge status={call.status} />
-                </TableCell>
-                <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
-                  {call.latencyMs !== null ? `${call.latencyMs}ms` : "—"}
-                </TableCell>
-                <TableCell className="text-right text-xs text-muted-foreground">
-                  {formatRelTime(call.createdAt)}
-                </TableCell>
+        <>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Request ID</TableHead>
+                <TableHead>Path</TableHead>
+                <TableHead className="hidden sm:table-cell">Agent</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="hidden lg:table-cell">Latency</TableHead>
+                <TableHead className="text-right">Time</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {paginated.map((call) => (
+                <TableRow key={call.id}>
+                  <TableCell>
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {call.id.slice(0, 8)}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="font-mono text-xs text-foreground">
+                      {call.path || "/"}
+                    </span>
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell">
+                    {call.agentName ? (
+                      <span className="inline-flex items-center gap-1.5 text-xs text-foreground">
+                        <Bot className="w-3 h-3 text-primary shrink-0" strokeWidth={1.8} />
+                        {call.agentName}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge status={call.status} />
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
+                    {call.latencyMs !== null ? `${call.latencyMs}ms` : "—"}
+                  </TableCell>
+                  <TableCell className="text-right text-xs text-muted-foreground">
+                    {formatRelTime(call.createdAt)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+
+          {/* Pagination footer */}
+          <div className="flex items-center justify-between px-5 py-3 border-t border-border">
+            <p className="text-xs text-muted-foreground">
+              {from}–{to} of {calls.length} calls
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage((p) => p - 1)}
+                disabled={page === 0}
+                className="flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title="Previous page"
+              >
+                <ChevronLeft className="w-4 h-4" strokeWidth={1.8} />
+              </button>
+              <span className="text-xs text-muted-foreground px-1.5 tabular-nums">
+                {page + 1} / {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => p + 1)}
+                disabled={page >= totalPages - 1}
+                className="flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title="Next page"
+              >
+                <ChevronRight className="w-4 h-4" strokeWidth={1.8} />
+              </button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

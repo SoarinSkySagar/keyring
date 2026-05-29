@@ -1,17 +1,18 @@
-import { KeyRound, Zap, Gauge, Cpu } from "lucide-react";
+import { KeyRound, Zap, Cpu } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface Props {
   isLoading?: boolean;
   totalThisWeek: number | null;
   activeAgents: number | null;
+  totalGrants: number | null;
 }
 
-export function StatsCards({ isLoading = false, totalThisWeek, activeAgents }: Props) {
+export function StatsCards({ isLoading = false, totalThisWeek, activeAgents, totalGrants }: Props) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {Array.from({ length: 4 }).map((_, i) => (
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {Array.from({ length: 3 }).map((_, i) => (
           <div key={i} className="rounded-xl border border-border bg-card p-5 flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <Skeleton className="h-3 w-24" />
@@ -31,8 +32,13 @@ export function StatsCards({ isLoading = false, totalThisWeek, activeAgents }: P
     {
       label: "Active Grants",
       icon: KeyRound,
-      value: "—",
-      sub: "No data yet",
+      value: totalGrants !== null ? String(totalGrants) : "—",
+      sub:
+        totalGrants !== null
+          ? totalGrants === 0
+            ? "No secrets granted yet"
+            : `Secret access${totalGrants !== 1 ? "es" : ""} across all agents`
+          : "No data yet",
     },
     {
       label: "Operations This Week",
@@ -44,12 +50,6 @@ export function StatsCards({ isLoading = false, totalThisWeek, activeAgents }: P
             ? "No calls yet"
             : "API calls in last 7 days"
           : "No data yet",
-    },
-    {
-      label: "Budget Utilisation",
-      icon: Gauge,
-      value: "—",
-      sub: "No data yet",
     },
     {
       label: "Active Agents",
@@ -65,7 +65,7 @@ export function StatsCards({ isLoading = false, totalThisWeek, activeAgents }: P
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
       {stats.map((stat) => (
         <div
           key={stat.label}

@@ -10,7 +10,7 @@ interface Props {
 
 function EmptyChart({ label }: { label: string }) {
   return (
-    <div className="flex flex-col items-center justify-center h-[120px] gap-2">
+    <div className="flex flex-col items-center justify-center h-[180px] gap-2">
       <BarChart2
         className="w-8 h-8 text-muted-foreground/25"
         strokeWidth={1.5}
@@ -32,14 +32,14 @@ export function UsageChart({ isLoading = false, weeklyData, hourlyData }: Props)
             </div>
             <Skeleton className="h-6 w-28 rounded-full" />
           </div>
-          <Skeleton className="w-full h-[120px]" />
+          <Skeleton className="w-full h-[180px]" />
         </div>
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="mb-4 space-y-1.5">
             <Skeleton className="h-3 w-40" />
             <Skeleton className="h-8 w-20" />
           </div>
-          <Skeleton className="w-full h-20" />
+          <Skeleton className="w-full h-[144px]" />
         </div>
       </div>
     );
@@ -52,7 +52,7 @@ export function UsageChart({ isLoading = false, weeklyData, hourlyData }: Props)
   const totalWeek = weeklyData.reduce((s, d) => s + d.calls, 0);
 
   const svgW = 600;
-  const svgH = 120;
+  const svgH = 180;
   const padL = 8, padR = 8, padT = 12, padB = 24;
   const chartW = svgW - padL - padR;
   const chartH = svgH - padT - padB;
@@ -108,7 +108,7 @@ export function UsageChart({ isLoading = false, weeklyData, hourlyData }: Props)
           <svg
             viewBox={`0 0 ${svgW} ${svgH}`}
             className="w-full"
-            style={{ height: 120 }}
+            style={{ height: 180 }}
             preserveAspectRatio="none"
           >
             <defs>
@@ -197,7 +197,7 @@ export function UsageChart({ isLoading = false, weeklyData, hourlyData }: Props)
           <EmptyChart label="No activity today" />
         ) : (
           <>
-            <div className="flex items-end gap-0.5 h-20">
+            <div className="flex items-end gap-0.5 h-36">
               {hourlyData.map((v, i) => {
                 const h = (v / maxHourly) * 100;
                 const isCurrentHour = i === currentHour;

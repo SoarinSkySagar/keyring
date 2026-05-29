@@ -28,6 +28,7 @@ export interface UsageStats {
   recentCalls: RecentCall[];
   peakHour: number;
   activeAgents: number;
+  totalGrants: number; // sum of allowedSecrets.length across all active agents
 }
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -68,13 +69,14 @@ export async function getUsageStatsAction(): Promise<UsageStats | null> {
     .orderBy(desc(apiCalls.createdAt))
     .limit(500);
 
-  // Active agents count
-  const [agentCountRow] = await db
-    .select({ count: count() })
+  // Active agents + grant totals (one query)
+  const agentRows = await db
+    .select({ allowedSecrets: agents.allowedSecrets })
     .from(agents)
     .where(and(eq(agents.userId, userId), eq(agents.status, "active")));
 
-  const activeAgents = agentCountRow?.count ?? 0;
+  const activeAgents = agentRows.length;
+  const totalGrants = agentRows.reduce((sum, a) => sum + a.allowedSecrets.length, 0);
 
   // Weekly buckets
   const buckets: Record<string, number> = {};
@@ -107,7 +109,8 @@ export async function getUsageStatsAction(): Promise<UsageStats | null> {
     hourly,
     peakHour: Math.max(...hourly),
     activeAgents,
-    recentCalls: rows.slice(0, 20).map((r) => ({
+    totalGrants,
+    recentCalls: rows.slice(0, 100).map((r) => ({
       id: r.id,
       path: r.path,
       method: r.method,
