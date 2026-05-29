@@ -19,6 +19,12 @@ export const users = pgTable("users", {
   image: text("image"),
   passwordHash: text("password_hash"), // null for Google / MetaMask users
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+  // API key for agent connections — only the SHA-256 hash is stored
+  apiKeyHash: text("api_key_hash").unique(),
+  // Rate limit settings (requests per window, configurable by user)
+  rateLimitPerMinute: integer("rate_limit_per_minute").default(60).notNull(),
+  rateLimitPerHour: integer("rate_limit_per_hour").default(1000).notNull(),
+  rateLimitPerDay: integer("rate_limit_per_day").default(10000).notNull(),
 });
 
 // Stores OAuth + custom credential account links.
