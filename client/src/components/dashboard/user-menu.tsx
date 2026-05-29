@@ -21,11 +21,25 @@ export function UserMenu() {
 
   const email = user?.email?.address ?? user?.google?.email ?? null;
   const name = user?.google?.name ?? null;
-  const displayName = name ?? email ?? "Account";
-  const initials = displayName.slice(0, 2).toUpperCase();
 
-  const embeddedWallet = wallets.find((w) => w.walletClientType === "privy");
-  const walletAddress = embeddedWallet?.address ?? null;
+  // For wallet-login users who have no email/name, show their truncated
+  // external wallet address instead of the generic "Account" fallback.
+  const walletAccounts = user?.linkedAccounts?.filter(
+    (acc): acc is import("@privy-io/react-auth").WalletWithMetadata =>
+      acc.type === "wallet",
+  ) ?? [];
+  const externalWallet = walletAccounts.find((w) => w.walletClientType !== "privy");
+  const externalAddress = externalWallet?.address ?? null;
+
+  const displayName = name ?? email ?? (externalAddress ? truncate(externalAddress) : "Account");
+  const initials = (name ?? email ?? externalAddress ?? "AC").slice(0, 2).toUpperCase();
+
+  // Prefer the live connected wallet from useWallets(); fall back to
+  // linkedAccounts so the address shows even when the session hasn't
+  // re-connected the embedded wallet yet (e.g. wallet-login users).
+  const embeddedFromHook = wallets.find((w) => w.walletClientType === "privy");
+  const embeddedFromAccounts = walletAccounts.find((w) => w.walletClientType === "privy");
+  const walletAddress = embeddedFromHook?.address ?? embeddedFromAccounts?.address ?? null;
 
   const copyAddress = () => {
     if (!walletAddress) return;
