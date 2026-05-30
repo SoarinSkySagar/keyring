@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-/// @notice Interface that CDR calls on a read condition contract before releasing
-///         partial decryption shares to the requester.
+/// @notice Interface that the CDR precompile calls on a read-condition contract
+///         before releasing partial-decryption shares to the requester.
+///
+/// Actual CDR on-chain signature (4-param, from Story Protocol docs):
+///   checkReadCondition(uint32 uuid, bytes accessAuxData, bytes conditionData, address caller)
+///
+/// - uuid           : CDR vault identifier
+/// - accessAuxData  : dynamic bytes the requester supplies at read time
+/// - conditionData  : static bytes baked into the vault at allocation time
+/// - caller         : msg.sender that called CDR.read()
 interface ICDRReadCondition {
-    /// @param uuid          The vault UUID being read.
-    /// @param accessAuxData Dynamic bytes supplied by the requester at read time.
-    /// @param conditionData Static bytes baked into the vault at allocation time.
-    /// @param caller        The address that submitted the CDR read request.
-    /// @return              True to allow decryption, false to deny.
     function checkReadCondition(
         uint32 uuid,
         bytes calldata accessAuxData,

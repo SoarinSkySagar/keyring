@@ -6,6 +6,10 @@ import { ThemeProvider } from "./theme-provider";
 import { TooltipProvider } from "./ui/tooltip";
 import { Toaster } from "./ui/sonner";
 import { aeneid } from "@/lib/chains";
+import { suppressThirdPartyConsoleNoise } from "@/lib/suppress-console";
+
+// Run once at module evaluation — before any Privy component mounts
+suppressThirdPartyConsoleNoise();
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
