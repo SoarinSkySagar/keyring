@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { usePrivy, useWallets, useCreateWallet } from "@privy-io/react-auth";
 import { Copy, Check, LogOut } from "lucide-react";
+import { useContractSetup } from "@/hooks/use-contract-setup";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -14,10 +15,42 @@ function truncate(addr: string) {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
+function ContractAddressRow({ label, address }: { label: string; address: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const copy = () => {
+    navigator.clipboard.writeText(address);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  };
+
+  return (
+    <div>
+      <p className="text-[10px] text-muted-foreground leading-none mb-0.5">{label}</p>
+      <button
+        onClick={copy}
+        className="flex items-center justify-between w-full group"
+      >
+        <span className="text-xs font-mono text-foreground">
+          {truncate(address)}
+        </span>
+        <span className="text-muted-foreground group-hover:text-foreground transition-colors ml-2 flex-shrink-0">
+          {copied ? (
+            <Check className="w-3.5 h-3.5 text-green-500" />
+          ) : (
+            <Copy className="w-3.5 h-3.5" />
+          )}
+        </span>
+      </button>
+    </div>
+  );
+}
+
 export function UserMenu() {
   const { user, logout } = usePrivy();
   const { wallets } = useWallets();
   const { createWallet } = useCreateWallet();
+  const { contracts } = useContractSetup();
   const [copied, setCopied] = useState(false);
 
   const email = user?.email?.address ?? user?.google?.email ?? null;
@@ -133,6 +166,19 @@ export function UserMenu() {
             <p className="text-xs text-muted-foreground italic">Creating…</p>
           )}
         </div>
+
+        {/* Contract addresses */}
+        {contracts && (
+          <div className="px-4 py-3 border-b border-border space-y-2">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+              On-chain Contracts
+            </p>
+            <div className="space-y-1.5">
+              <ContractAddressRow label="Agent Registry" address={contracts.agentRegistryAddress} />
+              <ContractAddressRow label="Access Condition" address={contracts.conditionAddress} />
+            </div>
+          </div>
+        )}
 
         {/* Sign out */}
         <button
