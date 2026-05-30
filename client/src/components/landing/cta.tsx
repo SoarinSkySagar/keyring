@@ -61,9 +61,9 @@ export function CTA() {
             size="lg"
             className="group bg-primary text-primary-foreground hover:bg-primary/90 font-semibold px-8 h-12"
           >
-            <Link href="/signup">
+            <Link href="/signup" className="flex items-center gap-2">
               Get Started
-              <ArrowRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
           </Button>
 
