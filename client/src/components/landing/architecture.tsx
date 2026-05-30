@@ -9,8 +9,8 @@ const zones = [
     emoji: "🔵",
     zone: "Client Side",
     description:
-      "The calling agent. Sends EIP-712 signed intents. Receives only the operation result — never the credential.",
-    detail: "Signs intents · Receives results · Never sees a key",
+      "The calling agent. Sends a signed request with its registered key. Receives only the operation result — never the credential.",
+    detail: "Sends requests · Receives results · Never sees a key",
     color: "border-blue-500/20 bg-blue-500/5",
     iconColor: "text-blue-400",
     iconBg: "bg-blue-500/10 border-blue-500/20",

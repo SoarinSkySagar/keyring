@@ -1,20 +1,12 @@
 "use client";
 
-import { useState } from "react";
 import { useInView } from "@/hooks/use-in-view";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
+import Link from "next/link";
 
 export function CTA() {
   const { ref, inView } = useInView();
-  const [email, setEmail] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (email.trim()) setSubmitted(true);
-  };
 
   return (
     <section
@@ -49,7 +41,7 @@ export function CTA() {
       <div className="relative z-10 mx-auto max-w-3xl px-6 text-center">
         <div className={`kr-reveal ${inView ? "in-view" : ""}`}>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary mb-4">
-            Early Access
+            Now Live
           </p>
           <h2
             className="text-4xl sm:text-6xl font-extrabold text-foreground mb-5 leading-tight"
@@ -60,40 +52,20 @@ export function CTA() {
             <span className="kr-text-shimmer">No exposure.</span>
           </h2>
           <p className="text-muted-foreground text-[1rem] leading-relaxed mb-10 max-w-lg mx-auto">
-            Keyring is in private beta on the Aeneid testnet. Join the waitlist
-            for production access — scoped, revocable, metered secret grants for
-            your agents.
+            On-chain, scoped, revocable, metered secret grants for your agents —
+            running on the Aeneid testnet today.
           </p>
 
-          {/* Waitlist form */}
-          {submitted ? (
-            <div className="inline-flex items-center gap-3 px-6 py-4 rounded-xl border border-primary/30 bg-primary/8 text-primary font-medium">
-              <CheckCircle2 className="w-5 h-5" />
-              You&apos;re on the list. We&apos;ll be in touch.
-            </div>
-          ) : (
-            <form
-              onSubmit={handleSubmit}
-              className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto"
-            >
-              <Input
-                type="email"
-                placeholder="your@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="h-12 bg-card border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-primary focus-visible:border-primary/50 flex-1"
-              />
-              <Button
-                type="submit"
-                size="lg"
-                className="group bg-primary text-primary-foreground hover:bg-primary/90 font-semibold px-6 h-12 shrink-0"
-              >
-                Join Waitlist
-                <ArrowRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-              </Button>
-            </form>
-          )}
+          <Button
+            asChild
+            size="lg"
+            className="group bg-primary text-primary-foreground hover:bg-primary/90 font-semibold px-8 h-12"
+          >
+            <Link href="/signup">
+              Get Started
+              <ArrowRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          </Button>
 
           {/* Trust signals */}
           <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">

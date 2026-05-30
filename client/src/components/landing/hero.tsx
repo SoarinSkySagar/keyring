@@ -189,7 +189,7 @@ export function Hero() {
         <div className="relative w-full max-w-2xl mt-6 hidden lg:block h-12">
           <FloatingChip
             icon={Lock}
-            label="EIP-712 Signed Intents"
+            label="On-chain Access Control"
             className="absolute left-0 top-0"
           />
           <FloatingChip

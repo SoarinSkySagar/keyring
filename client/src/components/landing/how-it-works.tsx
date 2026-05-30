@@ -9,8 +9,8 @@ const steps = [
     number: "01",
     title: "Sign an Intent",
     description:
-      "The agent builds an EIP-712 typed-data struct binding the exact operation, resource, parameters hash, nonce, and deadline. Signs with its registered key.",
-    detail: "paramsHash binds to one specific operation — no reuse.",
+      "The agent sends a signed request binding the exact operation and resource to its registered key. Each request is scoped to one specific action.",
+    detail: "Request binds to one specific operation — no reuse.",
     color: "text-primary",
     bgColor: "bg-primary/10",
     borderColor: "border-primary/20",
