@@ -20,12 +20,12 @@ const syne = Syne({
 });
 
 export const metadata: Metadata = {
-  title: "Keyring — On-chain secret access for AI agents",
+  title: "Keyring",
   description:
     "On-chain, scoped, revocable, metered, auditable access to secrets for AI agents — where the agent never has the key.",
   keywords: ["AI agents", "secrets management", "blockchain", "TEE", "Story Foundation", "CDR"],
   openGraph: {
-    title: "Keyring — On-chain secret access for AI agents",
+    title: "Keyring",
     description:
       "On-chain, scoped, revocable, metered, auditable access to secrets for AI agents — where the agent never has the key.",
     url: "https://keyring-ormp.onrender.com",
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Keyring — On-chain secret access for AI agents",
+    title: "Keyring",
     description:
       "On-chain, scoped, revocable, metered, auditable access to secrets for AI agents — where the agent never has the key.",
     images: ["/og.png"],
