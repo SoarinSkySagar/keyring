@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     description:
       "On-chain, scoped, revocable, metered, auditable access to secrets for AI agents — where the agent never has the key.",
     url: "https://keyring-ormp.onrender.com",
-    images: [{ url: "/og.png", width: 1200, height: 630 }],
+    images: [{ url: "https://keyring-ormp.onrender.com/og.png", width: 1200, height: 630 }],
     type: "website",
   },
   twitter: {
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     title: "Keyring",
     description:
       "On-chain, scoped, revocable, metered, auditable access to secrets for AI agents — where the agent never has the key.",
-    images: ["/og.png"],
+    images: ["https://keyring-ormp.onrender.com/og.png"],
   },
 };
 
