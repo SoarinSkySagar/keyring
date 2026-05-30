@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { usePrivy, useWallets, useCreateWallet } from "@privy-io/react-auth";
 import { Copy, Check, LogOut } from "lucide-react";
-import { useContractSetup } from "@/hooks/use-contract-setup";
+import { useContractSetupContext } from "@/context/contract-setup-context";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -50,7 +50,7 @@ export function UserMenu() {
   const { user, logout } = usePrivy();
   const { wallets } = useWallets();
   const { createWallet } = useCreateWallet();
-  const { contracts } = useContractSetup();
+  const { contracts } = useContractSetupContext();
   const [copied, setCopied] = useState(false);
 
   const email = user?.email?.address ?? user?.google?.email ?? null;

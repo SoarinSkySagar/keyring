@@ -9,11 +9,12 @@ export default function DashboardLayout({
 }) {
   return (
     <AuthGuard>
-      <ContractSetup />
-      <div className="min-h-screen bg-background">
-        <Sidebar />
-        <div className="lg:pl-60">{children}</div>
-      </div>
+      <ContractSetup>
+        <div className="min-h-screen bg-background">
+          <Sidebar />
+          <div className="lg:pl-60">{children}</div>
+        </div>
+      </ContractSetup>
     </AuthGuard>
   );
 }

@@ -1,13 +1,12 @@
 "use client";
 
-import { useContractSetup } from "@/hooks/use-contract-setup";
+import { ContractSetupProvider } from "@/context/contract-setup-context";
 
 /**
- * Transparent component — renders no UI.
- * Runs useContractSetup() on every dashboard load and silently deploys
- * AgentRegistry + KeyringAccessCondition if not yet done for this user.
+ * Wraps dashboard children with ContractSetupProvider.
+ * Runs the deployment check exactly once per mount — state is shared
+ * across all consumers (e.g. UserMenu) via context.
  */
-export function ContractSetup() {
-  useContractSetup();
-  return null;
+export function ContractSetup({ children }: { children: React.ReactNode }) {
+  return <ContractSetupProvider>{children}</ContractSetupProvider>;
 }
