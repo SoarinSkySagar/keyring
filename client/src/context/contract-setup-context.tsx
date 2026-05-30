@@ -11,6 +11,7 @@ import {
 import { usePrivy } from "@privy-io/react-auth";
 import { useSmartWallets } from "@privy-io/react-auth/smart-wallets";
 import { createPublicClient, http, decodeEventLog } from "viem";
+import { toast } from "sonner";
 import { aeneid } from "@/lib/chains";
 import { KeyringFactoryABI, KEYRING_FACTORY_ADDRESS } from "@/lib/contracts";
 import {
@@ -61,6 +62,7 @@ export function ContractSetupProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
+      // 1. Short-circuit if already deployed
       const existing = await getUserContractsAction();
       if (existing) {
         setContracts(existing);
@@ -68,17 +70,50 @@ export function ContractSetupProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      setStatus("deploying");
+      if (!KEYRING_FACTORY_ADDRESS) {
+        throw new Error("NEXT_PUBLIC_KEYRING_FACTORY_ADDRESS is not set");
+      }
 
-      const hash = await client!.writeContract({
+      // 2. Deploy via user's smart wallet — user will be prompted to sign
+      setStatus("deploying");
+      const toastId = toast.loading("Setting up your on-chain contracts…");
+
+      // writeContract on Privy's SmartAccountClient sends a UserOperation and
+      // returns the UserOperation hash (not a transaction hash). We use the
+      // smart wallet client's own waitForTransactionReceipt so it knows how
+      // to resolve a UserOp hash through the bundler.
+      const userOpHash = await client!.writeContract({
         address: KEYRING_FACTORY_ADDRESS,
         abi: KeyringFactoryABI,
         functionName: "deploy",
         chain: aeneid,
       });
 
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      console.log("[ContractSetup] UserOp submitted:", userOpHash);
+      toast.loading("Waiting for transaction confirmation…", { id: toastId });
 
+      // Use the smart wallet client to wait — it handles UserOp → tx resolution.
+      // Fall back to publicClient if the method isn't available (older SDK versions).
+      let receipt: Awaited<ReturnType<typeof publicClient.waitForTransactionReceipt>>;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const smartClient = client as any;
+      if (typeof smartClient.waitForTransactionReceipt === "function") {
+        receipt = await smartClient.waitForTransactionReceipt({
+          hash: userOpHash,
+          timeout: 120_000,
+        });
+      } else {
+        // Fallback: if writeContract returned a real tx hash, this will work.
+        receipt = await publicClient.waitForTransactionReceipt({
+          hash: userOpHash,
+          timeout: 120_000,
+        });
+      }
+
+      console.log("[ContractSetup] Receipt:", receipt.transactionHash);
+
+      // 3. Parse RegistryDeployed(owner, registry, condition) from logs
       let agentRegistryAddress: string | undefined;
       let conditionAddress: string | undefined;
 
@@ -99,9 +134,10 @@ export function ContractSetupProvider({ children }: { children: ReactNode }) {
       }
 
       if (!agentRegistryAddress || !conditionAddress) {
-        throw new Error("RegistryDeployed event not found in transaction receipt");
+        throw new Error("RegistryDeployed event not found in receipt");
       }
 
+      // 4. Persist to DB
       const { error: saveError } = await saveUserContractsAction(
         agentRegistryAddress,
         conditionAddress
@@ -111,15 +147,27 @@ export function ContractSetupProvider({ children }: { children: ReactNode }) {
       const deployed = { agentRegistryAddress, conditionAddress };
       setContracts(deployed);
       setStatus("done");
+      toast.success("On-chain contracts ready", { id: toastId });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Contract deployment failed");
+      const msg = err instanceof Error ? err.message : "Contract deployment failed";
+      console.error("[ContractSetup] Error:", err);
+      setError(msg);
       setStatus("error");
+      toast.error("Contract setup failed", { description: msg });
     }
   }
 
   return (
     <ContractSetupContext.Provider
-      value={{ status, contracts, error, retry: () => { ran.current = false; run(); } }}
+      value={{
+        status,
+        contracts,
+        error,
+        retry: () => {
+          ran.current = false;
+          run();
+        },
+      }}
     >
       {children}
     </ContractSetupContext.Provider>
