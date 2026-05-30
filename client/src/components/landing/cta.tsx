@@ -56,15 +56,17 @@ export function CTA() {
             running on the Aeneid testnet today.
           </p>
 
-          <Link href="/signup">
-            <Button
-              size="lg"
-              className="group bg-primary text-primary-foreground hover:bg-primary/90 font-semibold px-8 h-12 flex items-center gap-2"
-            >
-              Get Started
-              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-            </Button>
-          </Link>
+          <div className="flex justify-center">
+            <Link href="/signup">
+              <Button
+                size="lg"
+                className="group bg-primary text-primary-foreground hover:bg-primary/90 font-semibold px-8 h-12 flex items-center gap-2"
+              >
+                Get Started
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+              </Button>
+            </Link>
+          </div>
 
           {/* Trust signals */}
           <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">

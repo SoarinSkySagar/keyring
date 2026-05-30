@@ -4,6 +4,7 @@ import { useRef, useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Shield, Zap, Lock } from "lucide-react";
+import Link from "next/link";
 
 /* Floating geometric shape */
 function HexShape({
@@ -168,21 +169,16 @@ export function Hero() {
         </p>
 
         {/* CTAs */}
-        <div className="flex flex-col sm:flex-row items-center gap-3 mt-2">
-          <Button
-            size="lg"
-            className="group bg-primary text-primary-foreground hover:bg-primary/90 font-semibold px-7 h-12 text-[0.95rem]"
-          >
-            Join the Waitlist
-            <ArrowRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-          </Button>
-          <Button
-            size="lg"
-            variant="outline"
-            className="border-border hover:bg-accent font-medium px-7 h-12 text-[0.95rem] text-muted-foreground hover:text-foreground"
-          >
-            Read the Docs
-          </Button>
+        <div className="flex items-center justify-center mt-2">
+          <Link href="/signup">
+            <Button
+              size="lg"
+              className="group bg-primary text-primary-foreground hover:bg-primary/90 font-semibold px-7 h-12 text-[0.95rem] flex items-center gap-2"
+            >
+              Get Started
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+            </Button>
+          </Link>
         </div>
 
         {/* Floating info chips */}
