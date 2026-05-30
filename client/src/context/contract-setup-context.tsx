@@ -78,55 +78,68 @@ export function ContractSetupProvider({ children }: { children: ReactNode }) {
       setStatus("deploying");
       const toastId = toast.loading("Setting up your on-chain contracts…");
 
-      // writeContract on Privy's SmartAccountClient sends a UserOperation and
-      // returns the UserOperation hash (not a transaction hash). We use the
-      // smart wallet client's own waitForTransactionReceipt so it knows how
-      // to resolve a UserOp hash through the bundler.
+      // writeContract on Privy's SmartAccountClient sends a UserOperation.
+      // The factory deployment needs ~2M gas; set an explicit gas limit so
+      // Pimlico's auto-estimation doesn't cap callGasLimit too low.
       const userOpHash = await client!.writeContract({
         address: KEYRING_FACTORY_ADDRESS,
         abi: KeyringFactoryABI,
         functionName: "deploy",
         chain: aeneid,
+        gas: BigInt(3_000_000), // explicit callGasLimit headroom for AgentRegistry constructor
       });
 
       console.log("[ContractSetup] UserOp submitted:", userOpHash);
       toast.loading("Waiting for transaction confirmation…", { id: toastId });
 
-      // Use the smart wallet client to wait — it handles UserOp → tx resolution.
-      // Fall back to publicClient if the method isn't available (older SDK versions).
-      let receipt: Awaited<ReturnType<typeof publicClient.waitForTransactionReceipt>>;
-
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const smartClient = client as any;
-      if (typeof smartClient.waitForTransactionReceipt === "function") {
-        receipt = await smartClient.waitForTransactionReceipt({
-          hash: userOpHash,
-          timeout: 120_000,
-        });
-      } else {
-        // Fallback: if writeContract returned a real tx hash, this will work.
-        receipt = await publicClient.waitForTransactionReceipt({
-          hash: userOpHash,
-          timeout: 120_000,
-        });
-      }
 
-      console.log("[ContractSetup] Receipt txHash:", receipt.transactionHash);
-      console.log("[ContractSetup] Receipt status:", receipt.status);
-      console.log("[ContractSetup] Logs count:", receipt.logs.length);
-      console.log("[ContractSetup] Log topics:", receipt.logs.map((l) => l.topics));
+      // waitForUserOperationReceipt gives us:
+      //   .success  — whether the inner call succeeded
+      //   .reason   — revert reason if it failed
+      //   .logs     — logs emitted by our call only (not the whole bundle tx)
+      //   .receipt  — the actual Ethereum tx receipt
+      let deployLogs: Array<{ address: string; topics: readonly string[]; data: string }>;
+
+      if (typeof smartClient.waitForUserOperationReceipt === "function") {
+        const userOpReceipt = await smartClient.waitForUserOperationReceipt({
+          hash: userOpHash,
+          timeout: 120_000,
+        });
+        console.log("[ContractSetup] UserOp success:", userOpReceipt.success);
+        console.log("[ContractSetup] UserOp reason:", userOpReceipt.reason);
+        console.log("[ContractSetup] UserOp logs:", userOpReceipt.logs?.length);
+        console.log("[ContractSetup] Bundle txHash:", userOpReceipt.receipt?.transactionHash);
+
+        if (!userOpReceipt.success) {
+          throw new Error(
+            `Deployment reverted: ${userOpReceipt.reason ?? "out of gas or inner call failed"}`
+          );
+        }
+        deployLogs = userOpReceipt.logs ?? [];
+      } else {
+        // Fallback: parse the full bundle tx receipt
+        const receipt = await publicClient.waitForTransactionReceipt({
+          hash: userOpHash,
+          timeout: 120_000,
+        });
+        console.log("[ContractSetup] Fallback receipt status:", receipt.status);
+        console.log("[ContractSetup] Fallback logs:", receipt.logs.length);
+        deployLogs = receipt.logs;
+      }
 
       // 3. Parse RegistryDeployed(owner, registry, condition) from logs
       let agentRegistryAddress: string | undefined;
       let conditionAddress: string | undefined;
 
-      for (const log of receipt.logs) {
+      for (const log of deployLogs) {
         try {
           const decoded = decodeEventLog({
             abi: KeyringFactoryABI,
             eventName: "RegistryDeployed",
-            topics: log.topics,
-            data: log.data,
+            topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+            data: log.data as `0x${string}`,
           });
           agentRegistryAddress = decoded.args.registry as string;
           conditionAddress = decoded.args.condition as string;
@@ -137,14 +150,13 @@ export function ContractSetupProvider({ children }: { children: ReactNode }) {
       }
 
       if (!agentRegistryAddress || !conditionAddress) {
-        // Log all log addresses to help identify which contract emitted what
         console.error(
-          "[ContractSetup] RegistryDeployed not found. All logs:",
-          receipt.logs.map((l) => ({ address: l.address, topics: l.topics }))
+          "[ContractSetup] RegistryDeployed not found in logs:",
+          deployLogs.map((l) => ({ address: l.address, topics: l.topics }))
         );
         throw new Error(
-          `RegistryDeployed event not found in receipt (status=${receipt.status}, logs=${receipt.logs.length}). ` +
-          `Tx: https://aeneid.storyscan.io/tx/${receipt.transactionHash}`
+          `RegistryDeployed event not found (${deployLogs.length} logs). ` +
+          `Check the transaction on StoryScan.`
         );
       }
 
