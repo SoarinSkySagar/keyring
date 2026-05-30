@@ -111,7 +111,10 @@ export function ContractSetupProvider({ children }: { children: ReactNode }) {
         });
       }
 
-      console.log("[ContractSetup] Receipt:", receipt.transactionHash);
+      console.log("[ContractSetup] Receipt txHash:", receipt.transactionHash);
+      console.log("[ContractSetup] Receipt status:", receipt.status);
+      console.log("[ContractSetup] Logs count:", receipt.logs.length);
+      console.log("[ContractSetup] Log topics:", receipt.logs.map((l) => l.topics));
 
       // 3. Parse RegistryDeployed(owner, registry, condition) from logs
       let agentRegistryAddress: string | undefined;
@@ -134,7 +137,15 @@ export function ContractSetupProvider({ children }: { children: ReactNode }) {
       }
 
       if (!agentRegistryAddress || !conditionAddress) {
-        throw new Error("RegistryDeployed event not found in receipt");
+        // Log all log addresses to help identify which contract emitted what
+        console.error(
+          "[ContractSetup] RegistryDeployed not found. All logs:",
+          receipt.logs.map((l) => ({ address: l.address, topics: l.topics }))
+        );
+        throw new Error(
+          `RegistryDeployed event not found in receipt (status=${receipt.status}, logs=${receipt.logs.length}). ` +
+          `Tx: https://aeneid.storyscan.io/tx/${receipt.transactionHash}`
+        );
       }
 
       // 4. Persist to DB
