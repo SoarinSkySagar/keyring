@@ -55,12 +55,13 @@ contract AgentRegistry is Ownable {
     // ──────────────────────────────────────────────────────── constructor ──
 
     /// @param registrationWorkflows  Story Protocol RegistrationWorkflows address.
-    /// @param collectionOwner        Address that owns the SPGNFT collection (usually deployer).
+    /// @param owner_                 Address that will own this registry (the user's smart wallet).
     constructor(
         address registrationWorkflows,
-        address collectionOwner
-    ) Ownable(collectionOwner) {
+        address owner_
+    ) Ownable(owner_) {
         if (registrationWorkflows == address(0)) revert ZeroAddress();
+        if (owner_ == address(0)) revert ZeroAddress();
         REGISTRATION_WORKFLOWS = IRegistrationWorkflows(registrationWorkflows);
 
         // Create the Keyring SPGNFT collection once — all agents are minted from it.
@@ -74,9 +75,9 @@ contract AgentRegistry is Ownable {
                 mintFee: 0,
                 mintFeeToken: address(0),
                 mintFeeRecipient: address(0),
-                owner: collectionOwner,
+                owner: owner_,
                 mintOpen: true,
-                isPublicMinting: false
+                isPublicMinting: true  // AgentRegistry is the only caller (onlyOwner gates createAgent)
             })
         );
     }
@@ -90,7 +91,7 @@ contract AgentRegistry is Ownable {
     function createAgent(
         string calldata name,
         address agentWallet
-    ) external returns (address ipId) {
+    ) external onlyOwner returns (address ipId) {
         if (agentWallet == address(0)) revert ZeroAddress();
         if (walletToIpId[agentWallet] != address(0)) revert AgentAlreadyRegistered(agentWallet);
 
