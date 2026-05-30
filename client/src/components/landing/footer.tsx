@@ -21,13 +21,18 @@ export function Footer() {
 
           {/* Links */}
           <div className="flex flex-wrap gap-6">
-            {["Documentation", "GitHub", "Story Foundation CDR", "Phala Network"].map((link) => (
+            {[
+              { label: "GitHub", href: "https://github.com/SoarinSkySagar/keyring" },
+              { label: "Story Foundation", href: "https://www.story.foundation/" },
+            ].map(({ label, href }) => (
               <a
-                key={link}
-                href="#"
+                key={label}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
-                {link}
+                {label}
               </a>
             ))}
           </div>
@@ -40,7 +45,7 @@ export function Footer() {
             Built for the Story Foundation CDR Hackathon · Aeneid Testnet
           </p>
           <p className="text-xs text-muted-foreground font-mono">
-            On-chain · Revocable · Metered · Auditable
+            On-chain · Revocable · Metered
           </p>
         </div>
       </div>

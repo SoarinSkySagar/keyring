@@ -60,6 +60,7 @@ export function Features() {
 
   return (
     <section
+      id="capabilities"
       ref={ref}
       className="relative py-28 border-t border-border bg-kr-surface overflow-hidden"
     >

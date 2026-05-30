@@ -45,6 +45,7 @@ export function HowItWorks() {
 
   return (
     <section
+      id="how-it-works"
       ref={ref}
       className="relative py-28 border-t border-border overflow-hidden"
     >

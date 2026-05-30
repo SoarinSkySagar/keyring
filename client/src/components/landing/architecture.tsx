@@ -46,6 +46,7 @@ export function Architecture() {
 
   return (
     <section
+      id="architecture"
       ref={ref}
       className="relative py-28 border-t border-border overflow-hidden"
     >

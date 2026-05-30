@@ -14,7 +14,11 @@ import {
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
-const navLinks = ["How it works", "Security", "Docs"];
+const navLinks = [
+  { label: "How it works", href: "#how-it-works" },
+  { label: "Capabilities", href: "#capabilities" },
+  { label: "Architecture", href: "#architecture" },
+];
 
 export function Navbar() {
   const { theme, setTheme } = useTheme();
@@ -56,10 +60,10 @@ export function Navbar() {
 
         {/* Center nav links — desktop only */}
         <div className="hidden md:flex items-center gap-7">
-          {navLinks.map((label) => (
+          {navLinks.map(({ label, href }) => (
             <a
               key={label}
-              href="#"
+              href={href}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200"
             >
               {label}
@@ -130,10 +134,10 @@ export function Navbar() {
         }`}
       >
         <div className="px-4 sm:px-6 pb-4 flex flex-col gap-1">
-          {navLinks.map((label) => (
+          {navLinks.map(({ label, href }) => (
             <a
               key={label}
-              href="#"
+              href={href}
               onClick={() => setMobileOpen(false)}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors py-2.5 border-b border-border/40 last:border-0"
             >
