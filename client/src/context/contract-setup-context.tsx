@@ -10,7 +10,7 @@ import {
 } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useSmartWallets } from "@privy-io/react-auth/smart-wallets";
-import { createPublicClient, http, decodeEventLog } from "viem";
+import { createPublicClient, http, decodeEventLog, parseAbiItem } from "viem";
 import { toast } from "sonner";
 import { aeneid } from "@/lib/chains";
 import { KeyringFactoryABI, KEYRING_FACTORY_ADDRESS } from "@/lib/contracts";
@@ -25,7 +25,17 @@ const publicClient = createPublicClient({
   transport: http("https://aeneid.storyrpc.io"),
 });
 
-export type ContractSetupStatus = "idle" | "checking" | "deploying" | "done" | "error";
+// ERC-4337 UserOperationEvent — for checking whether the inner call succeeded
+const USER_OP_EVENT = parseAbiItem(
+  "event UserOperationEvent(bytes32 indexed userOpHash, address indexed sender, address indexed paymaster, uint256 nonce, bool success, uint256 actualGasCost, uint256 actualGasUsed)"
+);
+
+export type ContractSetupStatus =
+  | "idle"
+  | "checking"
+  | "deploying"
+  | "done"
+  | "error";
 
 type ContractSetupContextValue = {
   status: ContractSetupStatus;
@@ -74,66 +84,87 @@ export function ContractSetupProvider({ children }: { children: ReactNode }) {
         throw new Error("NEXT_PUBLIC_KEYRING_FACTORY_ADDRESS is not set");
       }
 
-      // 2. Deploy via user's smart wallet — user will be prompted to sign
+      // 2. Sanity-check: make sure the factory has code on-chain
+      const factoryCode = await publicClient.getBytecode({
+        address: KEYRING_FACTORY_ADDRESS,
+      });
+      if (!factoryCode || factoryCode === "0x") {
+        throw new Error(
+          `KeyringFactory has no bytecode at ${KEYRING_FACTORY_ADDRESS} on Aeneid. ` +
+            "Redeploy with: forge script script/Deploy.s.sol --rpc-url https://aeneid.storyrpc.io/ --broadcast"
+        );
+      }
+
+      // 3. Deploy via user's smart wallet (gasless UserOperation)
       setStatus("deploying");
       const toastId = toast.loading("Setting up your on-chain contracts…");
 
-      // writeContract on Privy's SmartAccountClient sends a UserOperation.
-      // The factory deployment needs ~2M gas; set an explicit gas limit so
-      // Pimlico's auto-estimation doesn't cap callGasLimit too low.
-      const userOpHash = await client!.writeContract({
+      // Privy's SmartAccountClient.writeContract() returns the bundle TX hash,
+      // NOT a UserOp hash. We can use waitForTransactionReceipt directly.
+      const txHash = (await client!.writeContract({
         address: KEYRING_FACTORY_ADDRESS,
         abi: KeyringFactoryABI,
         functionName: "deploy",
         chain: aeneid,
-        gas: BigInt(3_000_000), // explicit callGasLimit headroom for AgentRegistry constructor
-      });
+      })) as `0x${string}`;
 
-      console.log("[ContractSetup] UserOp submitted:", userOpHash);
+      console.log("[ContractSetup] Bundle tx:", txHash);
       toast.loading("Waiting for transaction confirmation…", { id: toastId });
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const smartClient = client as any;
+      // 4. Wait for the bundle tx to be mined
+      const receipt = await publicClient.waitForTransactionReceipt({
+        hash: txHash,
+        timeout: 120_000,
+      });
 
-      // waitForUserOperationReceipt gives us:
-      //   .success  — whether the inner call succeeded
-      //   .reason   — revert reason if it failed
-      //   .logs     — logs emitted by our call only (not the whole bundle tx)
-      //   .receipt  — the actual Ethereum tx receipt
-      let deployLogs: Array<{ address: string; topics: readonly string[]; data: string }>;
+      console.log(
+        "[ContractSetup] Receipt status:",
+        receipt.status,
+        "| logs:",
+        receipt.logs.length
+      );
 
-      if (typeof smartClient.waitForUserOperationReceipt === "function") {
-        const userOpReceipt = await smartClient.waitForUserOperationReceipt({
-          hash: userOpHash,
-          timeout: 120_000,
-        });
-        console.log("[ContractSetup] UserOp success:", userOpReceipt.success);
-        console.log("[ContractSetup] UserOp reason:", userOpReceipt.reason);
-        console.log("[ContractSetup] UserOp logs:", userOpReceipt.logs?.length);
-        console.log("[ContractSetup] Bundle txHash:", userOpReceipt.receipt?.transactionHash);
-
-        if (!userOpReceipt.success) {
-          throw new Error(
-            `Deployment reverted: ${userOpReceipt.reason ?? "out of gas or inner call failed"}`
-          );
-        }
-        deployLogs = userOpReceipt.logs ?? [];
-      } else {
-        // Fallback: parse the full bundle tx receipt
-        const receipt = await publicClient.waitForTransactionReceipt({
-          hash: userOpHash,
-          timeout: 120_000,
-        });
-        console.log("[ContractSetup] Fallback receipt status:", receipt.status);
-        console.log("[ContractSetup] Fallback logs:", receipt.logs.length);
-        deployLogs = receipt.logs;
+      // Log every event topic so we can debug unexpected receipts
+      for (const log of receipt.logs) {
+        console.log("[ContractSetup] Log addr:", log.address, "topic0:", log.topics[0]);
       }
 
-      // 3. Parse RegistryDeployed(owner, registry, condition) from logs
+      // 5. Check whether the inner UserOp call succeeded (ERC-4337 handleOps
+      //    always succeeds even when the inner call reverts).
+      let innerSuccess = true;
+      for (const log of receipt.logs) {
+        try {
+          const decoded = decodeEventLog({
+            abi: [USER_OP_EVENT],
+            eventName: "UserOperationEvent",
+            topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+            data: log.data as `0x${string}`,
+          });
+          innerSuccess = decoded.args.success as boolean;
+          console.log(
+            "[ContractSetup] UserOperationEvent: success =",
+            innerSuccess,
+            "| gasUsed =",
+            decoded.args.actualGasUsed
+          );
+          break;
+        } catch {
+          // Not this event — continue
+        }
+      }
+
+      if (!innerSuccess) {
+        throw new Error(
+          `Deployment reverted (inner call failed). ` +
+            `View on StoryScan: https://aeneid.storyscan.io/tx/${txHash}`
+        );
+      }
+
+      // 6. Parse RegistryDeployed(owner, registry, condition)
       let agentRegistryAddress: string | undefined;
       let conditionAddress: string | undefined;
 
-      for (const log of deployLogs) {
+      for (const log of receipt.logs) {
         try {
           const decoded = decodeEventLog({
             abi: KeyringFactoryABI,
@@ -145,22 +176,22 @@ export function ContractSetupProvider({ children }: { children: ReactNode }) {
           conditionAddress = decoded.args.condition as string;
           break;
         } catch {
-          // Not the event we're looking for — continue
+          // Not this event — continue
         }
       }
 
       if (!agentRegistryAddress || !conditionAddress) {
         console.error(
-          "[ContractSetup] RegistryDeployed not found in logs:",
-          deployLogs.map((l) => ({ address: l.address, topics: l.topics }))
+          "[ContractSetup] RegistryDeployed not found. All log topics:",
+          receipt.logs.map((l) => ({ address: l.address, topic0: l.topics[0] }))
         );
         throw new Error(
-          `RegistryDeployed event not found (${deployLogs.length} logs). ` +
-          `Check the transaction on StoryScan.`
+          `RegistryDeployed event not found (${receipt.logs.length} logs). ` +
+            `Check tx on StoryScan: https://aeneid.storyscan.io/tx/${txHash}`
         );
       }
 
-      // 4. Persist to DB
+      // 7. Persist to DB
       const { error: saveError } = await saveUserContractsAction(
         agentRegistryAddress,
         conditionAddress
@@ -172,7 +203,8 @@ export function ContractSetupProvider({ children }: { children: ReactNode }) {
       setStatus("done");
       toast.success("On-chain contracts ready", { id: toastId });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Contract deployment failed";
+      const msg =
+        err instanceof Error ? err.message : "Contract deployment failed";
       console.error("[ContractSetup] Error:", err);
       setError(msg);
       setStatus("error");
