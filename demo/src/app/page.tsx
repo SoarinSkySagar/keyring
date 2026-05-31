@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { getDb, ensureTable } from "@/db";
 import { spells } from "@/db/schema";
 import { CreateForm } from "./create-form";
+import { PhraseList } from "./phrase-list";
 
 export default async function Home() {
   await ensureTable();
@@ -32,38 +33,7 @@ export default async function Home() {
         <h2 style={{ fontSize: "1.2rem", fontWeight: 700, marginBottom: "16px" }}>
           Existing phrases ({all.length})
         </h2>
-        {all.length === 0 ? (
-          <p style={{ color: "#999" }}>No spells yet.</p>
-        ) : (
-          <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "8px" }}>
-            {all.map((s) => (
-              <li
-                key={s.phrase}
-                style={{
-                  padding: "10px 14px",
-                  border: "1px solid #e5e5e5",
-                  borderRadius: "6px",
-                  fontFamily: "monospace",
-                  fontSize: "0.95rem",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: "12px",
-                }}
-              >
-                <span>{s.phrase}</span>
-                <a
-                  href={`/api/${s.phrase}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ color: "#555", fontSize: "0.8rem", textDecoration: "none" }}
-                >
-                  test →
-                </a>
-              </li>
-            ))}
-          </ul>
-        )}
+        <PhraseList phrases={all.map((s) => s.phrase)} />
       </section>
     </main>
   );

@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { getDb, ensureTable } from "@/db";
 import { spells } from "@/db/schema";
 
@@ -16,6 +17,7 @@ export async function createSpell(
   try {
     await ensureTable();
     await getDb().insert(spells).values({ phrase, secret });
+    revalidatePath("/");
     return { success: true };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "";

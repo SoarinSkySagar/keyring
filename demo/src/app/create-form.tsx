@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { createSpell } from "./actions";
 
 const input: React.CSSProperties = {
@@ -25,10 +26,19 @@ const btn: React.CSSProperties = {
 };
 
 export function CreateForm() {
+  const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
   const [state, action, pending] = useActionState(createSpell, null);
 
+  useEffect(() => {
+    if (state?.success) {
+      formRef.current?.reset();
+      router.refresh();
+    }
+  }, [state, router]);
+
   return (
-    <form action={action} style={{ display: "flex", flexDirection: "column", gap: "12px", maxWidth: "420px" }}>
+    <form ref={formRef} action={action} style={{ display: "flex", flexDirection: "column", gap: "12px", maxWidth: "420px" }}>
       <input name="phrase" placeholder="magic-phrase (no spaces)" required style={input} />
       <input name="secret" placeholder="secret value" required style={input} />
       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
