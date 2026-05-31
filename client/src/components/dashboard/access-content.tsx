@@ -50,6 +50,8 @@ import { useContractSetupContext } from "@/context/contract-setup-context";
 import { AgentRegistryABI, KeyringAccessConditionABI } from "@/lib/contracts";
 import { createPublicClient, http, encodeFunctionData } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+import { entryPoint07Address } from "viem/account-abstraction";
+import { toSimpleSmartAccount } from "permissionless/accounts";
 import { aeneid } from "@/lib/chains";
 
 // ── Shared public client ───────────────────────────────────────────────────────
@@ -167,10 +169,20 @@ function CreateAgentDialog({
 
     setSaving(true);
     try {
-      // 1. Generate agent Ethereum keypair — private key is the agent's credential
+      // 1. Generate agent keypair — private key is the agent's credential
       const privateKeyBytes = crypto.getRandomValues(new Uint8Array(32));
       const privateKey = ("0x" + Array.from(privateKeyBytes).map((b) => b.toString(16).padStart(2, "0")).join("")) as `0x${string}`;
-      const { address: agentWalletAddress } = privateKeyToAccount(privateKey);
+
+      // Derive the SimpleAccount smart wallet address (not EOA) — this is
+      // what gets registered in AgentRegistry and what CDR sees as msg.sender.
+      // Pimlico pays gas for UserOps sent from this address (zero cost to user).
+      setLoadingMsg("Generating agent wallet…");
+      const smartAccount = await toSimpleSmartAccount({
+        client: aeneidPublicClient,
+        owner: privateKeyToAccount(privateKey),
+        entryPoint: { address: entryPoint07Address, version: "0.7" },
+      });
+      const agentWalletAddress = smartAccount.address;
 
       // 2. Register agent as Story Protocol IP Asset
       setLoadingMsg("Registering on Story Protocol…");
