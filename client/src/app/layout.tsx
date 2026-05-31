@@ -20,23 +20,23 @@ const syne = Syne({
 });
 
 export const metadata: Metadata = {
-  title: "Keyring",
+  title: "Keyring — Scoped, Revocable Secret Grants for AI Agents",
   description:
-    "On-chain, scoped, revocable, metered access to secrets for AI agents — where the agent never has the key.",
+    "On-chain, scoped, revocable, metered access to secrets for AI agents — where the agent never has the key. Built on Story Protocol CDR. Get started today.",
   keywords: ["AI agents", "secrets management", "blockchain", "TEE", "Story Foundation", "CDR"],
   openGraph: {
-    title: "Keyring",
+    title: "Keyring — Scoped, Revocable Secret Grants for AI Agents",
     description:
-      "On-chain, scoped, revocable, metered access to secrets for AI agents — where the agent never has the key.",
+      "On-chain, scoped, revocable, metered access to secrets for AI agents — where the agent never has the key. Built on Story Protocol CDR. Get started today.",
     url: "https://keyring-ormp.onrender.com",
     images: [{ url: "https://keyring-ormp.onrender.com/og.png", width: 1200, height: 630 }],
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Keyring",
+    title: "Keyring — Scoped, Revocable Secret Grants for AI Agents",
     description:
-      "On-chain, scoped, revocable, metered access to secrets for AI agents — where the agent never has the key.",
+      "On-chain, scoped, revocable, metered access to secrets for AI agents — where the agent never has the key. Built on Story Protocol CDR. Get started today.",
     images: ["https://keyring-ormp.onrender.com/og.png"],
   },
 };
