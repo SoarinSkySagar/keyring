@@ -1,12 +1,12 @@
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
-import { AccessContent } from "@/components/dashboard/access-content";
+import { AgentsContent } from "@/components/dashboard/agents-content";
 
-export default function AccessPage() {
+export default function AgentsPage() {
   return (
     <div className="flex flex-col min-h-screen">
-      <DashboardHeader title="Access" />
+      <DashboardHeader title="Agents" />
       <main className="flex-1 p-4 sm:p-6">
-        <AccessContent />
+        <AgentsContent />
       </main>
     </div>
   );

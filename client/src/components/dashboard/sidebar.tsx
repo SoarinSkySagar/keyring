@@ -19,7 +19,7 @@ const navItems = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
   { href: "/dashboard/secrets", label: "Secrets", icon: KeyRound },
   { href: "/dashboard/authorization", label: "Authorization", icon: Lock },
-  { href: "/dashboard/access", label: "Access", icon: Users },
+  { href: "/dashboard/agents", label: "Agents", icon: Users },
 ];
 
 export function Sidebar() {

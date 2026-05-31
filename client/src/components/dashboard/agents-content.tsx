@@ -648,7 +648,7 @@ function RegenerateKeyDialog({
 
 // ── Main component ─────────────────────────────────────────────────────────
 
-export function AccessContent() {
+export function AgentsContent() {
   const { client: smartClient } = useSmartWallets();
   const { contracts } = useContractSetupContext();
 
