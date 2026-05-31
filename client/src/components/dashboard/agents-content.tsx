@@ -502,47 +502,6 @@ function CreateAgentDialog({
               </div>
             </div>
 
-              {/* Rate limit */}
-              <div className="pt-1">
-                <div className="flex items-center gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const next = !rateLimitEnabled;
-                      setRateLimitEnabled(next);
-                      if (next) setRateLimitDialogOpen(true);
-                      else setRateLimitConfig({ enabled: false });
-                    }}
-                    className={cn(
-                      "flex items-center justify-center w-5 h-5 rounded border transition-colors shrink-0",
-                      rateLimitEnabled ? "bg-primary border-primary" : "border-border bg-transparent"
-                    )}
-                  >
-                    {rateLimitEnabled && <Check className="w-3 h-3 text-primary-foreground" strokeWidth={2.5} />}
-                  </button>
-                  <span className="text-sm text-muted-foreground">Enable rate limit</span>
-                  {rateLimitEnabled && (
-                    <button
-                      type="button"
-                      onClick={() => setRateLimitDialogOpen(true)}
-                      className="ml-auto text-xs text-primary hover:underline"
-                    >
-                      Edit limits
-                    </button>
-                  )}
-                </div>
-                {rateLimitEnabled && (rateLimitConfig.maxTotal || rateLimitConfig.perMinute || rateLimitConfig.perHour || rateLimitConfig.perDay) && (
-                  <p className="text-xs text-muted-foreground mt-1.5 ml-7">
-                    {[
-                      rateLimitConfig.maxTotal && `${rateLimitConfig.maxTotal} total`,
-                      rateLimitConfig.perMinute && `${rateLimitConfig.perMinute}/min`,
-                      rateLimitConfig.perHour && `${rateLimitConfig.perHour}/hr`,
-                      rateLimitConfig.perDay && `${rateLimitConfig.perDay}/day`,
-                    ].filter(Boolean).join(" · ")}
-                  </p>
-                )}
-              </div>
-
             <DialogFooter>
               <Button variant="outline" size="sm" onClick={handleClose}>Cancel</Button>
               <Button
@@ -560,12 +519,7 @@ function CreateAgentDialog({
         {/* Rate limit sub-dialog */}
         <RateLimitDialog
           open={rateLimitDialogOpen}
-          onOpenChange={(v) => {
-            setRateLimitDialogOpen(v);
-            if (!v && !rateLimitConfig.maxTotal && !rateLimitConfig.perMinute && !rateLimitConfig.perHour && !rateLimitConfig.perDay) {
-              setRateLimitEnabled(false);
-            }
-          }}
+          onOpenChange={setRateLimitDialogOpen}
           initial={rateLimitConfig}
           onApply={(cfg) => setRateLimitConfig(cfg)}
         />
@@ -626,6 +580,47 @@ function CreateAgentDialog({
                   This will mint a Story Protocol IP Asset for the agent and grant
                   on-chain vault access. Two transaction confirmations required.
                 </p>
+              </div>
+
+              {/* Rate limit */}
+              <div className="pt-1">
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !rateLimitEnabled;
+                      setRateLimitEnabled(next);
+                      if (next) setRateLimitDialogOpen(true);
+                      else setRateLimitConfig({ enabled: false });
+                    }}
+                    className={cn(
+                      "flex items-center justify-center w-5 h-5 rounded border transition-colors shrink-0",
+                      rateLimitEnabled ? "bg-primary border-primary" : "border-border bg-transparent"
+                    )}
+                  >
+                    {rateLimitEnabled && <Check className="w-3 h-3 text-primary-foreground" strokeWidth={2.5} />}
+                  </button>
+                  <span className="text-sm text-muted-foreground">Enable rate limit</span>
+                  {rateLimitEnabled && (
+                    <button
+                      type="button"
+                      onClick={() => setRateLimitDialogOpen(true)}
+                      className="ml-auto text-xs text-primary hover:underline"
+                    >
+                      Edit limits
+                    </button>
+                  )}
+                </div>
+                {rateLimitEnabled && (rateLimitConfig.maxTotal || rateLimitConfig.perMinute || rateLimitConfig.perHour || rateLimitConfig.perDay) && (
+                  <p className="text-xs text-muted-foreground mt-1.5 ml-7">
+                    {[
+                      rateLimitConfig.maxTotal && `${rateLimitConfig.maxTotal} total`,
+                      rateLimitConfig.perMinute && `${rateLimitConfig.perMinute}/min`,
+                      rateLimitConfig.perHour && `${rateLimitConfig.perHour}/hr`,
+                      rateLimitConfig.perDay && `${rateLimitConfig.perDay}/day`,
+                    ].filter(Boolean).join(" · ")}
+                  </p>
+                )}
               </div>
             </div>
 
