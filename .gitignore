@@ -9,3 +9,5 @@
 # Dependencies / build output
 **/node_modules/
 tee-worker/dist/
+demo/.next/
+demo/.env
