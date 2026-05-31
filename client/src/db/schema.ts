@@ -3,7 +3,6 @@ import {
   text,
   timestamp,
   integer,
-  boolean,
 } from "drizzle-orm/pg-core";
 
 // ── Users ───────────────────────────────────────────────────────
@@ -25,39 +24,6 @@ export const users = pgTable("users", {
   rateLimitPerMinute: integer("rate_limit_per_minute").default(60).notNull(),
   rateLimitPerHour: integer("rate_limit_per_hour").default(1000).notNull(),
   rateLimitPerDay: integer("rate_limit_per_day").default(10000).notNull(),
-});
-
-// ── Keyring domain tables ───────────────────────────────────────
-
-export const grants = pgTable("grants", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  grantRef: text("grant_ref").notNull(),
-  agentAddress: text("agent_address").notNull(),
-  operations: text("operations").array().notNull().default([]),
-  budgetTotal: integer("budget_total").notNull().default(0),
-  budgetUsed: integer("budget_used").notNull().default(0),
-  revoked: boolean("revoked").notNull().default(false),
-  expiresAt: timestamp("expires_at", { mode: "date" }),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
-});
-
-export const auditEvents = pgTable("audit_events", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  grantId: text("grant_id").references(() => grants.id, { onDelete: "set null" }),
-  requestId: text("request_id").notNull(),
-  agentAddress: text("agent_address").notNull(),
-  operation: text("operation").notNull(),
-  resourceId: text("resource_id").notNull(),
-  status: text("status").notNull(),
-  txHash: text("tx_hash"),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
 });
 
 // ── Whitelisted agents ───────────────────────────────────────────
@@ -122,8 +88,6 @@ export const apiCalls = pgTable("api_calls", {
 // ── Types ───────────────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
-export type Grant = typeof grants.$inferSelect;
-export type AuditEvent = typeof auditEvents.$inferSelect;
 export type ApiCall = typeof apiCalls.$inferSelect;
 export type Agent = typeof agents.$inferSelect;
 export type Secret = typeof secrets.$inferSelect;
