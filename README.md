@@ -16,7 +16,7 @@ AI agents need your secrets to be useful — your API keys, database passwords, 
 
 **Keyring is a vault that lets an agent *use* a secret without ever *receiving* it.** You store a secret once. You give an agent a plain-English policy ("you may only read from this one API"). When the agent makes a request, Keyring decrypts the secret inside a sealed hardware enclave, an AI judge checks the request against your policy, the secret is injected into the outgoing call, and the agent gets back only the **result** — never the key itself.
 
-- 🧑‍💻 **No blockchain knowledge required.** Sign in with Google. Everything on-chain happens automatically in the background — you never touch a wallet, seed phrase, or token.
+- 🧑‍💻 **No blockchain knowledge required.** Sign in with Google, email, or an external wallet. Setup takes a few one-click signatures — no seed phrases, no tokens, nothing else to learn.
 - 🔒 **Security is the whole point.** The secret is decrypted only inside an attested Trusted Execution Environment, used once, and wiped. The agent and its host never see it.
 - ✨ **Built to be easy.** Create a secret, create an agent, copy an API key. That's it.
 - ⛽ **Zero gas, ever.** Every blockchain transaction is sponsored by the protocol. You never pay or hold a single token.
@@ -81,10 +81,10 @@ You'll do this in two parts: **(A)** set up your vault and agent in the dashboar
 ### Part A — Set up in the dashboard
 
 #### 1. Sign in
-Go to **[keyring-ormp.onrender.com](https://keyring-ormp.onrender.com)** and sign in with Google (via Privy). A smart wallet is created for you automatically — no extension, no seed phrase.
+Go to **[keyring-ormp.onrender.com](https://keyring-ormp.onrender.com)** and sign in however you prefer — **Google, email, or an external wallet** (via Privy). A smart wallet is created for you automatically — no extension or seed phrase needed.
 
-#### 2. Wait for your contracts to deploy
-The first time you open the dashboard, Keyring deploys your personal `AgentRegistry` + `KeyringAccessCondition` contracts on Aeneid. Your smart wallet signs and submits this automatically — **just wait a few seconds** for "On-chain contracts ready." (Gasless; nothing to pay.)
+#### 2. Deploy your contracts
+The first time you open the dashboard, Keyring deploys your personal `AgentRegistry` + `KeyringAccessCondition` contracts on Aeneid. **Sign the prompt when it appears**, then wait a few seconds for "On-chain contracts ready." Signing is free — Keyring sponsors the gas.
 
 #### 3. Create a secret
 Go to **Secrets → Add secret**. Enter a name (e.g. `SECRETVAULTKEY`) and its value. On save, Keyring:
@@ -92,7 +92,7 @@ Go to **Secrets → Add secret**. Enter a name (e.g. `SECRETVAULTKEY`) and its v
 2. Registers vault ownership (`registerVault`),
 3. Saves the reference.
 
-Two transactions fire automatically — **wait for confirmation**. The plaintext value is never stored in our database; only the encrypted CDR vault holds it.
+**Sign the prompts** when they appear and wait for confirmation (gasless, sponsored by Keyring). The plaintext value is never stored in our database; only the encrypted CDR vault holds it.
 
 #### 4. Create an agent
 Go to **Agents → New agent**.
@@ -101,11 +101,11 @@ Go to **Agents → New agent**.
 
   > Example policy: *"This agent may only make GET requests to the demo vault API to retrieve a secret for testing. No POST, PUT, DELETE or write operations are permitted."*
 
-On create, the agent is registered on-chain as a **Story Protocol IP Asset** and granted access to each selected secret. These transactions sign and submit automatically — **wait for confirmation**.
+On create, the agent is registered on-chain as a **Story Protocol IP Asset** and granted access to each selected secret. **Sign the prompts** and wait for confirmation — gasless, as always.
 
 #### 5. Copy your credentials
 - From the **agent's row**, copy the **Agent ID** (its on-chain credential).
-- Go to the **API** tab and copy your **API key** (`kr_…`). It's always visible here — no need to regenerate.
+- Go to the **API** tab and copy your **API key** (`kr_…`).
 
 You now have everything to make a call: an **API key**, an **Agent ID**, and a **secret name**.
 
@@ -249,9 +249,3 @@ make dev          # start dstack simulator, tee-worker, and the dashboard
 ```
 
 Copy `.env.example` to `.env` and fill in the values (Privy, Neon, Pimlico, Gemini, factory address). See the `Makefile` for all targets.
-
----
-
-## A Note on the Testnet
-
-Keyring runs on Aeneid testnet with test credentials. A TEE relocates trust to the hardware vendor and the open-source Phala stack — a large, real reduction in attack surface, but not "unhackable." Plaintext necessarily exists *during* the operation; the enclave's job is to make that "somewhere" an attested environment with a minimal trusted computing base. Revocation gates future access — it cannot claw back a secret already revealed in a completed operation.
