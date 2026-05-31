@@ -876,10 +876,16 @@ export function AgentsContent() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [rows, secrets] = await Promise.all([getAgentsAction(), getSecretsAction()]);
-    setAgentList(rows);
-    setAvailableSecrets(secrets);
-    setLoading(false);
+    try {
+      const [rows, secrets] = await Promise.all([getAgentsAction(), getSecretsAction()]);
+      setAgentList(rows);
+      setAvailableSecrets(secrets);
+    } catch (err) {
+      console.error("[Agents] load failed", err);
+      toast.error("Failed to load agents — please refresh");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);

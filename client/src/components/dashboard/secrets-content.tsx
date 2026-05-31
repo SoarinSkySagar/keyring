@@ -249,9 +249,15 @@ export function SecretsContent() {
   // Load secrets from DB on mount
   const loadSecrets = useCallback(async () => {
     setLoading(true);
-    const rows = await getSecretsAction();
-    setSecretsList(rows);
-    setLoading(false);
+    try {
+      const rows = await getSecretsAction();
+      setSecretsList(rows);
+    } catch (err) {
+      console.error("[Secrets] load failed", err);
+      toast.error("Failed to load secrets — please refresh");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
