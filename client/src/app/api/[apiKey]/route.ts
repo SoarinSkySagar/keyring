@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { createHash, randomUUID } from "crypto";
+import { randomUUID } from "crypto";
 import { db } from "@/db";
 import { users, agents, apiCalls } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -80,9 +80,8 @@ async function handle(
     return Response.json({ error: "Invalid API key format" }, { status: 401 });
   }
 
-  const hash = createHash("sha256").update(apiKey).digest("hex");
   const user = await db.query.users.findFirst({
-    where: eq(users.apiKeyHash, hash),
+    where: eq(users.apiKey, apiKey),
     columns: { id: true, rateLimitPerMinute: true, rateLimitPerHour: true, rateLimitPerDay: true },
   });
 

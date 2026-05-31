@@ -4,25 +4,14 @@ import { getCurrentUser } from "@/lib/privy";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { createHash, randomBytes } from "crypto";
+import { randomBytes } from "crypto";
 
-/** SHA-256 hex digest of the raw API key — used for DB lookup. */
-function hashApiKey(key: string): string {
-  return createHash("sha256").update(key).digest("hex");
-}
-
-/** Generate a new random API key: `kr_` + 32 random hex bytes. */
 function createApiKey(): string {
   return "kr_" + randomBytes(32).toString("hex");
 }
 
 // ── Generate / Regenerate ────────────────────────────────────────
 
-/**
- * Generates a new API key for the authenticated user.
- * Stores only the SHA-256 hash in the database.
- * Returns the plaintext key ONCE — it cannot be retrieved again.
- */
 export async function generateApiKeyAction(): Promise<{
   key?: string;
   error?: string;
@@ -31,35 +20,30 @@ export async function generateApiKeyAction(): Promise<{
   if (!user) return { error: "Not authenticated" };
 
   const key = createApiKey();
-  const hash = hashApiKey(key);
 
   await db
     .update(users)
-    .set({ apiKeyHash: hash })
+    .set({ apiKey: key })
     .where(eq(users.id, user.id));
 
   return { key };
 }
 
-// ── Status ───────────────────────────────────────────────────────
+// ── Get key ──────────────────────────────────────────────────────
 
-/**
- * Returns whether the current user has an API key configured.
- * Does NOT return the key itself.
- */
-export async function getApiKeyStatusAction(): Promise<{
-  configured: boolean;
+export async function getApiKeyAction(): Promise<{
+  key?: string;
   error?: string;
 }> {
   const user = await getCurrentUser();
-  if (!user) return { configured: false, error: "Not authenticated" };
+  if (!user) return { error: "Not authenticated" };
 
   const row = await db.query.users.findFirst({
     where: eq(users.id, user.id),
-    columns: { apiKeyHash: true },
+    columns: { apiKey: true },
   });
 
-  return { configured: !!row?.apiKeyHash };
+  return { key: row?.apiKey ?? undefined };
 }
 
 // ── Rate limits ──────────────────────────────────────────────────

@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Copy, Check, RefreshCw, Shield, Link2, Gauge, AlertTriangle } from "lucide-react";
+import { Copy, Check, RefreshCw, Shield, Link2, Gauge } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
   generateApiKeyAction,
-  getApiKeyStatusAction,
+  getApiKeyAction,
   getRateLimitsAction,
   saveRateLimitsAction,
 } from "@/actions/api-key";
@@ -38,32 +38,27 @@ function CopyButton({ value }: { value: string }) {
 }
 
 export function ApiContent() {
-  // API key state: null = not yet loaded, "" = not configured, "kr_..." = just generated (shown once)
+  // null = loading, "" = not generated, "kr_..." = key exists
   const [apiKey, setApiKey] = useState<string | null>(null);
-  const [keyConfigured, setKeyConfigured] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
 
-  // Rate limits
   const [rateLimits, setRateLimits] = useState({ perMinute: 60, perHour: 1000, perDay: 10000 });
   const [savingLimits, setSavingLimits] = useState(false);
   const [limitsSaved, setLimitsSaved] = useState(false);
 
-  // Derive base URL from current window location (client-side only)
   const [baseUrl, setBaseUrl] = useState("");
   useEffect(() => {
     setBaseUrl(window.location.origin);
   }, []);
 
-  // Connection URL — only shown when the plain key is available
   const connectionUrl = apiKey ? `${baseUrl}/api/${apiKey}` : "";
 
   const loadInitialData = useCallback(async () => {
-    const [statusResult, limitsResult] = await Promise.all([
-      getApiKeyStatusAction(),
+    const [keyResult, limitsResult] = await Promise.all([
+      getApiKeyAction(),
       getRateLimitsAction(),
     ]);
-    setKeyConfigured(statusResult.configured);
-    setApiKey(""); // sentinel: we've loaded, no key to show
+    setApiKey(keyResult.key ?? "");
     setRateLimits({
       perMinute: limitsResult.perMinute,
       perHour: limitsResult.perHour,
@@ -84,8 +79,7 @@ export function ApiContent() {
       return;
     }
     setApiKey(result.key!);
-    setKeyConfigured(true);
-    toast.success("New API key generated — copy it now, it won't be shown again");
+    toast.success("New API key generated");
   };
 
   const handleSaveRateLimits = async () => {
@@ -109,7 +103,6 @@ export function ApiContent() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      {/* Page intro */}
       <div>
         <h2
           className="text-xl font-bold text-foreground"
@@ -139,12 +132,12 @@ export function ApiContent() {
             className={`ml-auto text-[10px] font-mono font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${
               isLoading
                 ? "text-muted-foreground bg-muted border border-border"
-                : keyConfigured
+                : apiKey
                 ? "text-emerald-500 bg-emerald-500/10 border border-emerald-500/20"
                 : "text-muted-foreground bg-muted border border-border"
             }`}
           >
-            {isLoading ? "Loading…" : keyConfigured ? "Active" : "Not configured"}
+            {isLoading ? "Loading…" : apiKey ? "Active" : "Not configured"}
           </span>
         </div>
 
@@ -161,13 +154,7 @@ export function ApiContent() {
                     {isLoading ? (
                       <span className="font-mono text-sm text-muted-foreground">Loading…</span>
                     ) : apiKey ? (
-                      /* Key just generated — show it fully so user can copy */
                       <span className="font-mono text-sm text-foreground break-all">{apiKey}</span>
-                    ) : keyConfigured ? (
-                      /* Key exists in DB but we can't display it */
-                      <span className="font-mono text-sm text-muted-foreground">
-                        kr_<span className="tracking-wider">••••••••••••••••••••••••••••••••</span>
-                      </span>
                     ) : (
                       <span className="font-mono text-sm text-muted-foreground italic">
                         Not yet generated
@@ -176,16 +163,6 @@ export function ApiContent() {
                   </div>
                   {apiKey && <CopyButton value={apiKey} />}
                 </div>
-                {apiKey ? (
-                  <p className="flex items-center gap-1.5 text-xs text-amber-500 mt-1.5">
-                    <AlertTriangle className="w-3 h-3 shrink-0" strokeWidth={2} />
-                    Copy this key now — it won&apos;t be shown again after you leave this page.
-                  </p>
-                ) : (
-                  <p className="text-xs text-muted-foreground mt-1.5">
-                    This key is embedded in your connection URL. Keep it secret.
-                  </p>
-                )}
               </div>
               <div className="sm:pt-5">
                 <Button
@@ -199,7 +176,7 @@ export function ApiContent() {
                     className={`w-3.5 h-3.5 ${regenerating ? "animate-spin" : ""}`}
                     strokeWidth={1.8}
                   />
-                  {keyConfigured ? "Regenerate" : "Generate"}
+                  {apiKey ? "Regenerate" : "Generate"}
                 </Button>
               </div>
             </div>
@@ -211,10 +188,7 @@ export function ApiContent() {
               Full Connection URL
             </p>
             <div className="flex items-center gap-2 bg-muted/50 border border-border rounded-lg px-3 py-2">
-              <Link2
-                className="w-3.5 h-3.5 text-muted-foreground shrink-0"
-                strokeWidth={1.8}
-              />
+              <Link2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" strokeWidth={1.8} />
               {connectionUrl ? (
                 <>
                   <span className="font-mono text-sm text-foreground truncate flex-1">
@@ -224,11 +198,7 @@ export function ApiContent() {
                 </>
               ) : (
                 <span className="font-mono text-sm text-muted-foreground italic flex-1">
-                  {isLoading
-                    ? "Loading…"
-                    : keyConfigured
-                    ? `${baseUrl}/api/kr_••••••••••••••••`
-                    : "Generate a key above to get your URL"}
+                  {isLoading ? "Loading…" : "Generate a key above to get your URL"}
                 </span>
               )}
             </div>

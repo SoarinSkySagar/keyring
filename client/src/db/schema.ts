@@ -19,7 +19,7 @@ export const users = pgTable("users", {
   agentRegistryAddress: text("agent_registry_address"),
   conditionAddress: text("condition_address"),
   // API key for agent connections — only the SHA-256 hash is stored
-  apiKeyHash: text("api_key_hash").unique(),
+  apiKey: text("api_key").unique(),
   // Rate limit settings (requests per window, configurable by user)
   rateLimitPerMinute: integer("rate_limit_per_minute").default(60).notNull(),
   rateLimitPerHour: integer("rate_limit_per_hour").default(1000).notNull(),
