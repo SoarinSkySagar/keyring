@@ -178,7 +178,7 @@ async function handle(
     return Response.json(
       {
         ok: hasSecrets,
-        unlockedCount: Object.keys(unlockResult.secrets).length,
+        secrets: unlockResult.secrets,
         ...(hasErrors && { errors: unlockResult.errors }),
       },
       { status: hasSecrets ? 200 : 502 }
