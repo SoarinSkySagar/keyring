@@ -44,6 +44,12 @@ export const agents = pgTable("agents", {
   walletAddress: text("wallet_address"),  // agent's Ethereum wallet — used to call CDR
   ipId: text("ip_id"),                   // Story Protocol IP Asset address
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  // Per-agent call rate limits (all optional; null = no limit)
+  rateLimitEnabled: boolean("rate_limit_enabled").notNull().default(false),
+  rateLimitMaxTotal: integer("rate_limit_max_total"),   // max successful calls ever
+  rateLimitPerMinute: integer("rate_limit_per_minute"),
+  rateLimitPerHour: integer("rate_limit_per_hour"),
+  rateLimitPerDay: integer("rate_limit_per_day"),
 });
 
 // ── Secrets ──────────────────────────────────────────────────────

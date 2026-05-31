@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { randomUUID } from "crypto";
 import { db } from "@/db";
 import { users, agents, apiCalls } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, gte, lte, sql } from "drizzle-orm";
 import { unlockVaults } from "@/lib/unlock-vault";
 
 // Allow up to 300s — CDR decryption can take up to 180s on Pimlico free tier
@@ -62,6 +62,71 @@ async function recordCall(
   await db.insert(apiCalls)
     .values({ id: randomUUID(), userId, agentId: agentId ?? null, path, method, status, latencyMs })
     .catch((err) => console.error("[api-calls] log failed", err));
+}
+
+// ── Per-agent sliding-window rate limiter ────────────────────────
+
+const agentWindows = new Map<string, Window>();
+
+function getAgentWindow(agentId: string): Window {
+  let w = agentWindows.get(agentId);
+  if (!w) {
+    w = { minute: [], hour: [], day: [] };
+    agentWindows.set(agentId, w);
+  }
+  return w;
+}
+
+function recordAgentWindow(agentId: string) {
+  const now = Date.now();
+  const w = getAgentWindow(agentId);
+  w.minute.push(now);
+  w.hour.push(now);
+  w.day.push(now);
+}
+
+async function checkAgentRateLimit(agent: {
+  id: string;
+  rateLimitEnabled: boolean;
+  rateLimitMaxTotal: number | null;
+  rateLimitPerMinute: number | null;
+  rateLimitPerHour: number | null;
+  rateLimitPerDay: number | null;
+}): Promise<{ allowed: boolean; retryAfter?: number }> {
+  if (!agent.rateLimitEnabled) return { allowed: true };
+
+  const now = Date.now();
+
+  // All-time successful calls check (DB count — accurate across restarts)
+  if (agent.rateLimitMaxTotal !== null) {
+    const [{ total }] = await db
+      .select({ total: sql<number>`count(*)::int` })
+      .from(apiCalls)
+      .where(
+        and(
+          eq(apiCalls.agentId, agent.id),
+          gte(apiCalls.status, 200),
+          lte(apiCalls.status, 299)
+        )
+      );
+    if (total >= agent.rateLimitMaxTotal)
+      return { allowed: false };
+  }
+
+  // Per-period checks (in-memory sliding window)
+  const w = getAgentWindow(agent.id);
+  w.minute = w.minute.filter((t) => t > now - 60_000);
+  w.hour   = w.hour.filter((t)   => t > now - 3_600_000);
+  w.day    = w.day.filter((t)    => t > now - 86_400_000);
+
+  if (agent.rateLimitPerMinute !== null && w.minute.length >= agent.rateLimitPerMinute)
+    return { allowed: false, retryAfter: Math.ceil((w.minute[0] + 60_000 - now) / 1000) };
+  if (agent.rateLimitPerHour !== null && w.hour.length >= agent.rateLimitPerHour)
+    return { allowed: false, retryAfter: Math.ceil((w.hour[0] + 3_600_000 - now) / 1000) };
+  if (agent.rateLimitPerDay !== null && w.day.length >= agent.rateLimitPerDay)
+    return { allowed: false, retryAfter: Math.ceil((w.day[0] + 86_400_000 - now) / 1000) };
+
+  return { allowed: true };
 }
 
 // ── Handler ──────────────────────────────────────────────────────
@@ -126,7 +191,11 @@ async function handle(
 
     const agent = await db.query.agents.findFirst({
       where: and(eq(agents.agentKey, agentKey), eq(agents.userId, user.id)),
-      columns: { id: true, agentKey: true, allowedSecrets: true, status: true, policy: true },
+      columns: {
+        id: true, agentKey: true, allowedSecrets: true, status: true, policy: true,
+        rateLimitEnabled: true, rateLimitMaxTotal: true,
+        rateLimitPerMinute: true, rateLimitPerHour: true, rateLimitPerDay: true,
+      },
     });
 
     if (!agent || agent.status !== "active") {
@@ -134,9 +203,19 @@ async function handle(
       return Response.json({ error: "Agent not recognised" }, { status: 401 });
     }
 
-    resolvedAgentId = agent.id; // internal DB id for logging
+    resolvedAgentId = agent.id;
 
-    // ── Check 4: secretsRequested ─────────────────────────────
+    // ── Check 4: agent-level rate limit ───────────────────────
+    const agentRl = await checkAgentRateLimit(agent);
+    if (!agentRl.allowed) {
+      await recordCall(user.id, request.method, subPath, 429, Date.now() - start, resolvedAgentId);
+      return Response.json(
+        { error: "Agent call limit reached" },
+        { status: 429, headers: agentRl.retryAfter ? { "Retry-After": String(agentRl.retryAfter) } : {} }
+      );
+    }
+
+    // ── Check 5: secretsRequested ─────────────────────────────
     const secretsRequested = body.secretsRequested as string[] | undefined;
     if (!Array.isArray(secretsRequested) || secretsRequested.length === 0) {
       await recordCall(user.id, request.method, subPath, 400, Date.now() - start, resolvedAgentId);
@@ -260,6 +339,7 @@ async function handle(
     }
 
     // Allowed and executed → 200
+    recordAgentWindow(agent.id);
     await recordCall(user.id, request.method, subPath, 200, Date.now() - start, resolvedAgentId);
     return Response.json(
       {

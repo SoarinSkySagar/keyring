@@ -18,6 +18,7 @@ import {
   Eye,
   Loader2,
   ExternalLink,
+  Timer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,6 +44,7 @@ import {
   deleteAgentAction,
   regenerateAgentKeyAction,
   type AgentRow,
+  type AgentRateLimit,
 } from "@/actions/agents";
 import { getSecretsAction, type SecretRow } from "@/actions/secrets";
 import { useSmartWallets } from "@privy-io/react-auth/smart-wallets";
@@ -108,6 +110,157 @@ function StepIndicator({ step, current, label }: { step: number; current: number
   );
 }
 
+// ── Rate Limit Dialog ──────────────────────────────────────────────────────────
+
+function RateLimitField({
+  label,
+  sublabel,
+  enabled,
+  onToggle,
+  value,
+  onChange,
+}: {
+  label: string;
+  sublabel: string;
+  enabled: boolean;
+  onToggle: () => void;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <button
+        type="button"
+        onClick={onToggle}
+        className={cn(
+          "flex items-center justify-center w-5 h-5 rounded border transition-colors shrink-0",
+          enabled ? "bg-primary border-primary" : "border-border bg-transparent"
+        )}
+      >
+        {enabled && <Check className="w-3 h-3 text-primary-foreground" strokeWidth={2.5} />}
+      </button>
+      <span className={cn("text-sm flex-1", enabled ? "text-foreground" : "text-muted-foreground")}>
+        {label}
+      </span>
+      <div className="flex items-center gap-1.5">
+        <input
+          type="number"
+          min={1}
+          disabled={!enabled}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="—"
+          className="w-20 rounded-md border border-input bg-transparent px-2 py-1 text-sm text-right text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-ring disabled:opacity-40 disabled:cursor-not-allowed"
+        />
+        <span className="text-xs text-muted-foreground w-12">{sublabel}</span>
+      </div>
+    </div>
+  );
+}
+
+function RateLimitDialog({
+  open,
+  onOpenChange,
+  initial,
+  onApply,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  initial: AgentRateLimit;
+  onApply: (config: AgentRateLimit) => void;
+}) {
+  const [maxTotalOn, setMaxTotalOn] = useState(initial.maxTotal !== undefined);
+  const [maxTotal, setMaxTotal] = useState(initial.maxTotal?.toString() ?? "");
+  const [perMinOn, setPerMinOn] = useState(initial.perMinute !== undefined);
+  const [perMin, setPerMin] = useState(initial.perMinute?.toString() ?? "");
+  const [perHourOn, setPerHourOn] = useState(initial.perHour !== undefined);
+  const [perHour, setPerHour] = useState(initial.perHour?.toString() ?? "");
+  const [perDayOn, setPerDayOn] = useState(initial.perDay !== undefined);
+  const [perDay, setPerDay] = useState(initial.perDay?.toString() ?? "");
+
+  // Sync when dialog re-opens with different initial values
+  useEffect(() => {
+    if (open) {
+      setMaxTotalOn(initial.maxTotal !== undefined);
+      setMaxTotal(initial.maxTotal?.toString() ?? "");
+      setPerMinOn(initial.perMinute !== undefined);
+      setPerMin(initial.perMinute?.toString() ?? "");
+      setPerHourOn(initial.perHour !== undefined);
+      setPerHour(initial.perHour?.toString() ?? "");
+      setPerDayOn(initial.perDay !== undefined);
+      setPerDay(initial.perDay?.toString() ?? "");
+    }
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleApply = () => {
+    const config: AgentRateLimit = { enabled: true };
+    if (maxTotalOn && maxTotal) config.maxTotal = Math.max(1, Number(maxTotal));
+    if (perMinOn && perMin) config.perMinute = Math.max(1, Number(perMin));
+    if (perHourOn && perHour) config.perHour = Math.max(1, Number(perHour));
+    if (perDayOn && perDay) config.perDay = Math.max(1, Number(perDay));
+    onApply(config);
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <div className="flex items-center gap-2.5 mb-1">
+            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 border border-primary/20">
+              <Timer className="w-4 h-4 text-primary" strokeWidth={1.8} />
+            </div>
+            <DialogTitle>Rate Limit</DialogTitle>
+          </div>
+          <DialogDescription>
+            Check each limit you want to enable and set its value. Leave unchecked for no limit.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3 py-1">
+          <RateLimitField
+            label="All-time max calls"
+            sublabel="calls ever"
+            enabled={maxTotalOn}
+            onToggle={() => setMaxTotalOn((v) => !v)}
+            value={maxTotal}
+            onChange={setMaxTotal}
+          />
+          <RateLimitField
+            label="Per minute"
+            sublabel="calls / min"
+            enabled={perMinOn}
+            onToggle={() => setPerMinOn((v) => !v)}
+            value={perMin}
+            onChange={setPerMin}
+          />
+          <RateLimitField
+            label="Per hour"
+            sublabel="calls / hr"
+            enabled={perHourOn}
+            onToggle={() => setPerHourOn((v) => !v)}
+            value={perHour}
+            onChange={setPerHour}
+          />
+          <RateLimitField
+            label="Per day"
+            sublabel="calls / day"
+            enabled={perDayOn}
+            onToggle={() => setPerDayOn((v) => !v)}
+            value={perDay}
+            onChange={setPerDay}
+          />
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button size="sm" onClick={handleApply}>Apply</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── Create Agent Dialog ────────────────────────────────────────────────────────
 
 function CreateAgentDialog({
@@ -131,6 +284,9 @@ function CreateAgentDialog({
   const [createdAgent, setCreatedAgent] = useState<AgentRow | null>(null);
   const [saving, setSaving] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState("");
+  const [rateLimitEnabled, setRateLimitEnabled] = useState(false);
+  const [rateLimitDialogOpen, setRateLimitDialogOpen] = useState(false);
+  const [rateLimitConfig, setRateLimitConfig] = useState<AgentRateLimit>({ enabled: false });
 
   const reset = () => {
     setStep(1);
@@ -140,6 +296,9 @@ function CreateAgentDialog({
     setCreatedAgent(null);
     setSaving(false);
     setLoadingMsg("");
+    setRateLimitEnabled(false);
+    setRateLimitDialogOpen(false);
+    setRateLimitConfig({ enabled: false });
   };
 
   const handleClose = () => { reset(); onOpenChange(false); };
@@ -236,7 +395,8 @@ function CreateAgentDialog({
         selectedSecrets.map((s) => s.secretId),
         policy.trim(),
         privateKey,
-        ipId
+        ipId,
+        rateLimitEnabled ? { ...rateLimitConfig, enabled: true } : undefined
       );
 
       if (result.error || !result.agent) {
@@ -342,6 +502,47 @@ function CreateAgentDialog({
               </div>
             </div>
 
+              {/* Rate limit */}
+              <div className="pt-1">
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !rateLimitEnabled;
+                      setRateLimitEnabled(next);
+                      if (next) setRateLimitDialogOpen(true);
+                      else setRateLimitConfig({ enabled: false });
+                    }}
+                    className={cn(
+                      "flex items-center justify-center w-5 h-5 rounded border transition-colors shrink-0",
+                      rateLimitEnabled ? "bg-primary border-primary" : "border-border bg-transparent"
+                    )}
+                  >
+                    {rateLimitEnabled && <Check className="w-3 h-3 text-primary-foreground" strokeWidth={2.5} />}
+                  </button>
+                  <span className="text-sm text-muted-foreground">Enable rate limit</span>
+                  {rateLimitEnabled && (
+                    <button
+                      type="button"
+                      onClick={() => setRateLimitDialogOpen(true)}
+                      className="ml-auto text-xs text-primary hover:underline"
+                    >
+                      Edit limits
+                    </button>
+                  )}
+                </div>
+                {rateLimitEnabled && (rateLimitConfig.maxTotal || rateLimitConfig.perMinute || rateLimitConfig.perHour || rateLimitConfig.perDay) && (
+                  <p className="text-xs text-muted-foreground mt-1.5 ml-7">
+                    {[
+                      rateLimitConfig.maxTotal && `${rateLimitConfig.maxTotal} total`,
+                      rateLimitConfig.perMinute && `${rateLimitConfig.perMinute}/min`,
+                      rateLimitConfig.perHour && `${rateLimitConfig.perHour}/hr`,
+                      rateLimitConfig.perDay && `${rateLimitConfig.perDay}/day`,
+                    ].filter(Boolean).join(" · ")}
+                  </p>
+                )}
+              </div>
+
             <DialogFooter>
               <Button variant="outline" size="sm" onClick={handleClose}>Cancel</Button>
               <Button
@@ -355,6 +556,19 @@ function CreateAgentDialog({
             </DialogFooter>
           </>
         )}
+
+        {/* Rate limit sub-dialog */}
+        <RateLimitDialog
+          open={rateLimitDialogOpen}
+          onOpenChange={(v) => {
+            setRateLimitDialogOpen(v);
+            if (!v && !rateLimitConfig.maxTotal && !rateLimitConfig.perMinute && !rateLimitConfig.perHour && !rateLimitConfig.perDay) {
+              setRateLimitEnabled(false);
+            }
+          }}
+          initial={rateLimitConfig}
+          onApply={(cfg) => setRateLimitConfig(cfg)}
+        />
 
         {/* ── Step 2 ── */}
         {step === 2 && (

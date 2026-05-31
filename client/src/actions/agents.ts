@@ -6,6 +6,14 @@ import { agents } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { privateKeyToAccount } from "viem/accounts";
 
+export type AgentRateLimit = {
+  enabled: boolean;
+  maxTotal?: number;
+  perMinute?: number;
+  perHour?: number;
+  perDay?: number;
+};
+
 export type AgentRow = {
   id: string;
   name: string;
@@ -17,6 +25,7 @@ export type AgentRow = {
   policy: string;
   status: string;
   createdAt: Date;
+  rateLimit: AgentRateLimit;
 };
 
 // ── List ─────────────────────────────────────────────────────────
@@ -41,6 +50,13 @@ export async function getAgentsAction(): Promise<AgentRow[]> {
     policy: r.policy,
     status: r.status,
     createdAt: r.createdAt,
+    rateLimit: {
+      enabled: r.rateLimitEnabled,
+      maxTotal: r.rateLimitMaxTotal ?? undefined,
+      perMinute: r.rateLimitPerMinute ?? undefined,
+      perHour: r.rateLimitPerHour ?? undefined,
+      perDay: r.rateLimitPerDay ?? undefined,
+    },
   }));
 }
 
@@ -52,7 +68,8 @@ export async function createAgentAction(
   allowedSecretIds: string[],  // bytes32 0x-hex
   policy: string,
   privateKey: string,          // 0x + 32 bytes hex — agent's Ethereum private key
-  ipId: string
+  ipId: string,
+  rateLimit?: AgentRateLimit
 ): Promise<{ agent?: AgentRow; error?: string }> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
@@ -72,12 +89,17 @@ export async function createAgentAction(
       id: crypto.randomUUID(),
       userId: user.id,
       name: name.trim(),
-      agentKey: privateKey,   // agentKey IS the private key
+      agentKey: privateKey,
       allowedSecrets,
       allowedSecretIds,
       policy: policy.trim(),
       walletAddress,
       ipId,
+      rateLimitEnabled: rateLimit?.enabled ?? false,
+      rateLimitMaxTotal: rateLimit?.maxTotal ?? null,
+      rateLimitPerMinute: rateLimit?.perMinute ?? null,
+      rateLimitPerHour: rateLimit?.perHour ?? null,
+      rateLimitPerDay: rateLimit?.perDay ?? null,
     })
     .returning();
 
@@ -93,6 +115,13 @@ export async function createAgentAction(
       policy: row.policy,
       status: row.status,
       createdAt: row.createdAt,
+      rateLimit: {
+        enabled: row.rateLimitEnabled,
+        maxTotal: row.rateLimitMaxTotal ?? undefined,
+        perMinute: row.rateLimitPerMinute ?? undefined,
+        perHour: row.rateLimitPerHour ?? undefined,
+        perDay: row.rateLimitPerDay ?? undefined,
+      },
     },
   };
 }
