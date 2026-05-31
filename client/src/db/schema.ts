@@ -71,9 +71,12 @@ export const agents = pgTable("agents", {
     .references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   agentKey: text("agent_key").notNull().unique(), // plaintext — viewable any time
-  allowedSecrets: text("allowed_secrets").array().notNull().default([]),
+  allowedSecrets: text("allowed_secrets").array().notNull().default([]),       // display names
+  allowedSecretIds: text("allowed_secret_ids").array().notNull().default([]),  // bytes32 0x-hex for grantAccess
   policy: text("policy").notNull().default(""),
   status: text("status").notNull().default("active"), // "active" | "inactive"
+  walletAddress: text("wallet_address"),  // agent's Ethereum wallet — used to call CDR
+  ipId: text("ip_id"),                   // Story Protocol IP Asset address
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 });
 

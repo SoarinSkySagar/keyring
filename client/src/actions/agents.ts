@@ -4,22 +4,20 @@ import { getCurrentUser } from "@/lib/privy";
 import { db } from "@/db";
 import { agents } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { randomBytes } from "crypto";
+import { privateKeyToAccount } from "viem/accounts";
 
 export type AgentRow = {
   id: string;
   name: string;
-  agentKey: string;
-  allowedSecrets: string[];
+  agentKey: string;            // 0x-prefixed Ethereum private key — the agent's credential
+  walletAddress: string | null;
+  ipId: string | null;
+  allowedSecrets: string[];    // display names
+  allowedSecretIds: string[];  // bytes32 0x-hex — for grantAccess/revokeAccess
   policy: string;
   status: string;
   createdAt: Date;
 };
-
-function generateAgentKey(): string {
-  // Fully alphanumeric: "agt" + 32 lowercase hex chars
-  return "agt" + randomBytes(16).toString("hex");
-}
 
 // ── List ─────────────────────────────────────────────────────────
 
@@ -36,7 +34,10 @@ export async function getAgentsAction(): Promise<AgentRow[]> {
     id: r.id,
     name: r.name,
     agentKey: r.agentKey,
+    walletAddress: r.walletAddress,
+    ipId: r.ipId,
     allowedSecrets: r.allowedSecrets,
+    allowedSecretIds: r.allowedSecretIds,
     policy: r.policy,
     status: r.status,
     createdAt: r.createdAt,
@@ -47,8 +48,11 @@ export async function getAgentsAction(): Promise<AgentRow[]> {
 
 export async function createAgentAction(
   name: string,
-  allowedSecrets: string[],
-  policy: string
+  allowedSecrets: string[],    // display names
+  allowedSecretIds: string[],  // bytes32 0x-hex
+  policy: string,
+  privateKey: string,          // 0x + 32 bytes hex — agent's Ethereum private key
+  ipId: string
 ): Promise<{ agent?: AgentRow; error?: string }> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
@@ -56,8 +60,11 @@ export async function createAgentAction(
   if (!name.trim()) return { error: "Name is required" };
   if (!allowedSecrets.length) return { error: "Select at least one secret" };
   if (policy.trim().length < 20) return { error: "Policy too short" };
+  if (!privateKey.startsWith("0x") || privateKey.length !== 66)
+    return { error: "Invalid private key" };
 
-  const agentKey = generateAgentKey();
+  // Derive wallet address server-side to ensure consistency
+  const { address: walletAddress } = privateKeyToAccount(privateKey as `0x${string}`);
 
   const [row] = await db
     .insert(agents)
@@ -65,9 +72,12 @@ export async function createAgentAction(
       id: crypto.randomUUID(),
       userId: user.id,
       name: name.trim(),
-      agentKey,
+      agentKey: privateKey,   // agentKey IS the private key
       allowedSecrets,
+      allowedSecretIds,
       policy: policy.trim(),
+      walletAddress,
+      ipId,
     })
     .returning();
 
@@ -76,7 +86,10 @@ export async function createAgentAction(
       id: row.id,
       name: row.name,
       agentKey: row.agentKey,
+      walletAddress: row.walletAddress,
+      ipId: row.ipId,
       allowedSecrets: row.allowedSecrets,
+      allowedSecretIds: row.allowedSecretIds,
       policy: row.policy,
       status: row.status,
       createdAt: row.createdAt,
@@ -105,11 +118,14 @@ export async function regenerateAgentKeyAction(
   const user = await getCurrentUser();
   if (!user) return { error: "Not authenticated" };
 
-  const newKey = generateAgentKey();
+  // Generate a new Ethereum private key and derive the new wallet address
+  const { randomBytes } = await import("crypto");
+  const newPrivateKey = ("0x" + randomBytes(32).toString("hex")) as `0x${string}`;
+  const { address: newWalletAddress } = privateKeyToAccount(newPrivateKey);
 
   const [row] = await db
     .update(agents)
-    .set({ agentKey: newKey })
+    .set({ agentKey: newPrivateKey, walletAddress: newWalletAddress })
     .where(and(eq(agents.id, id), eq(agents.userId, user.id)))
     .returning({ agentKey: agents.agentKey });
 
