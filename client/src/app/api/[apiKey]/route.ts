@@ -3,6 +3,10 @@ import { createHash, randomUUID } from "crypto";
 import { db } from "@/db";
 import { users, agents, apiCalls } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { unlockVaults } from "@/lib/unlock-vault";
+
+// Allow up to 120s — CDR decryption polls for validator partials
+export const maxDuration = 120;
 
 // ── In-memory sliding-window rate limiter ────────────────────────
 
@@ -119,7 +123,7 @@ async function handle(
 
     const agent = await db.query.agents.findFirst({
       where: and(eq(agents.agentKey, agentKey), eq(agents.userId, user.id)),
-      columns: { id: true, allowedSecrets: true, status: true },
+      columns: { id: true, agentKey: true, allowedSecrets: true, status: true },
     });
 
     if (!agent || agent.status !== "active") {
@@ -149,9 +153,39 @@ async function handle(
       recordCall(user.id, request.method, subPath, 400, Date.now() - start, resolvedAgentId);
       return Response.json({ error: "taskRequested is required" }, { status: 400 });
     }
+
+    // ── Unlock CDR vaults ─────────────────────────────────────
+    // Uses the agent's private key (agentKey) to sign the CDR read tx automatically.
+    // No human approval required — fully server-side.
+    const unlockResult = await unlockVaults(user.id, agent.agentKey, secretsRequested);
+
+    // [DEMO] Print decrypted secrets to the server terminal
+    console.log("\n╔══ [Keyring] Vault Unlocked ══════════════════════════════");
+    console.log(`║  Agent:   ${agentKey.slice(0, 20)}…`);
+    console.log(`║  Task:    ${body.taskRequested}`);
+    for (const [name, value] of Object.entries(unlockResult.secrets)) {
+      console.log(`║  ✓ ${name}: ${value}`);
+    }
+    for (const [name, err] of Object.entries(unlockResult.errors)) {
+      console.log(`║  ✗ ${name}: ${err}`);
+    }
+    console.log("╚══════════════════════════════════════════════════════════\n");
+
+    const hasErrors = Object.keys(unlockResult.errors).length > 0;
+    const hasSecrets = Object.keys(unlockResult.secrets).length > 0;
+
+    recordCall(user.id, request.method, subPath, hasSecrets ? 200 : 502, Date.now() - start, resolvedAgentId);
+    return Response.json(
+      {
+        ok: hasSecrets,
+        unlockedCount: Object.keys(unlockResult.secrets).length,
+        ...(hasErrors && { errors: unlockResult.errors }),
+      },
+      { status: hasSecrets ? 200 : 502 }
+    );
   }
 
-  // ── All checks passed ─────────────────────────────────────────
+  // ── GET: just confirm key is valid ────────────────────────────
   recordCall(user.id, request.method, subPath, 200, Date.now() - start, resolvedAgentId);
   return Response.json({ ok: true, userId: user.id }, { status: 200 });
 }
