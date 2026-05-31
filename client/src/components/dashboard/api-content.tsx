@@ -37,7 +37,7 @@ function CopyButton({ value }: { value: string }) {
   );
 }
 
-export function AuthorizationContent() {
+export function ApiContent() {
   // API key state: null = not yet loaded, "" = not configured, "kr_..." = just generated (shown once)
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [keyConfigured, setKeyConfigured] = useState(false);
