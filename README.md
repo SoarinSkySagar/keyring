@@ -72,6 +72,8 @@ flowchart LR
 
 **The moment of use (the TEE).** When an agent calls, the decrypted secret enters a **Phala TDX enclave**. The agent's request is shown to a **Gemini policy judge as `{{PLACEHOLDERS}}` only** — the AI never sees real secret values. The judge rules on your policy. If denied, nothing executes. If allowed, the real secret is injected into the outgoing request *inside the enclave*, the call is made, and only the response returns — bound to a hardware **TDX attestation** proving which code ran.
 
+**This is the core guarantee: a secret, even at the instant it's decrypted, is never revealed to anyone.** It's used inside hardware-isolated enclave memory that not even the machine's operator can read, then wiped — never handed back. The agent that asked for it receives only the *result* of the operation, so even a fully compromised agent or a malicious host has nothing to steal.
+
 ---
 
 ## Using Keyring — Full Walkthrough
