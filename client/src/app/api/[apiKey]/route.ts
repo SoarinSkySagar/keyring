@@ -155,33 +155,80 @@ async function handle(
     }
 
     // ── Unlock CDR vaults ─────────────────────────────────────
-    // Uses the agent's private key (agentKey) to sign the CDR read tx automatically.
-    // No human approval required — fully server-side.
     const unlockResult = await unlockVaults(user.id, agent.agentKey, secretsRequested);
 
-    // [DEMO] Print decrypted secrets to the server terminal
-    console.log("\n╔══ [Keyring] Vault Unlocked ══════════════════════════════");
+    if (Object.keys(unlockResult.errors).length > 0) {
+      recordCall(user.id, request.method, subPath, 502, Date.now() - start, resolvedAgentId);
+      return Response.json({ ok: false, errors: unlockResult.errors }, { status: 502 });
+    }
+
+    // ── TEE: execute the HTTP task with secrets injected ──────
+    const task = body.task as {
+      method: string;
+      url: string;
+      headers?: Record<string, string>;
+      body?: string | null;
+    } | undefined;
+
+    // If no task object provided, just confirm unlock (backward compat)
+    if (!task) {
+      recordCall(user.id, request.method, subPath, 200, Date.now() - start, resolvedAgentId);
+      return Response.json({ ok: true, secrets: unlockResult.secrets }, { status: 200 });
+    }
+
+    // Inject secrets: replace {{SECRET_NAME}} placeholders in url, headers, body
+    function inject(template: string): string {
+      return template.replace(/\{\{(\w+)\}\}/g, (_, key) =>
+        unlockResult.secrets[key] ?? `{{${key}}}`
+      );
+    }
+
+    const resolvedUrl = inject(task.url);
+    const resolvedHeaders: Record<string, string> = {};
+    for (const [k, v] of Object.entries(task.headers ?? {})) {
+      resolvedHeaders[k] = inject(v);
+    }
+    const resolvedBody = task.body ? inject(task.body) : undefined;
+
+    // Execute the HTTP request inside the TEE
+    let taskResponse: Response;
+    try {
+      taskResponse = await fetch(resolvedUrl, {
+        method: task.method.toUpperCase(),
+        headers: resolvedHeaders,
+        ...(resolvedBody ? { body: resolvedBody } : {}),
+      });
+    } catch (err) {
+      recordCall(user.id, request.method, subPath, 502, Date.now() - start, resolvedAgentId);
+      return Response.json(
+        { ok: false, error: `Task HTTP request failed: ${err instanceof Error ? err.message : err}` },
+        { status: 502 }
+      );
+    }
+
+    let taskBody: unknown;
+    const contentType = taskResponse.headers.get("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+      taskBody = await taskResponse.json().catch(() => null);
+    } else {
+      taskBody = await taskResponse.text().catch(() => null);
+    }
+
+    console.log("\n╔══ [Keyring TEE] Task Executed ═══════════════════════════");
     console.log(`║  Agent:   ${agentKey.slice(0, 20)}…`);
     console.log(`║  Task:    ${body.taskRequested}`);
-    for (const [name, value] of Object.entries(unlockResult.secrets)) {
-      console.log(`║  ✓ ${name}: ${value}`);
-    }
-    for (const [name, err] of Object.entries(unlockResult.errors)) {
-      console.log(`║  ✗ ${name}: ${err}`);
-    }
+    console.log(`║  → ${task.method.toUpperCase()} ${resolvedUrl}`);
+    console.log(`║  ← ${taskResponse.status} ${taskResponse.statusText}`);
     console.log("╚══════════════════════════════════════════════════════════\n");
 
-    const hasErrors = Object.keys(unlockResult.errors).length > 0;
-    const hasSecrets = Object.keys(unlockResult.secrets).length > 0;
-
-    recordCall(user.id, request.method, subPath, hasSecrets ? 200 : 502, Date.now() - start, resolvedAgentId);
+    recordCall(user.id, request.method, subPath, 200, Date.now() - start, resolvedAgentId);
     return Response.json(
       {
-        ok: hasSecrets,
-        secrets: unlockResult.secrets,
-        ...(hasErrors && { errors: unlockResult.errors }),
+        ok: true,
+        taskStatus: taskResponse.status,
+        taskResponse: taskBody,
       },
-      { status: hasSecrets ? 200 : 502 }
+      { status: 200 }
     );
   }
 
