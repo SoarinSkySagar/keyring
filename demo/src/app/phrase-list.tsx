@@ -80,9 +80,19 @@ export function PhraseList({ phrases }: { phrases: string[] }) {
               gap: "8px",
             }}
           >
-            <span style={{ fontSize: "0.8rem", color: "#888", fontFamily: "system-ui, sans-serif" }}>
-              {phrase}
-            </span>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: "0.8rem", color: "#888", fontFamily: "system-ui, sans-serif" }}>
+                {phrase}
+              </span>
+              <a
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+                style={{ fontSize: "0.8rem", color: "#555", textDecoration: "none", fontFamily: "system-ui, sans-serif" }}
+              >
+                test →
+              </a>
+            </div>
             <CodeRow text={url} />
             <CodeRow text={curl} />
           </li>
