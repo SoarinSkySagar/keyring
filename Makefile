@@ -11,19 +11,19 @@
 # ── Install ───────────────────────────────────────────────────────────────────
 install:
 	@echo "▶  client …"
-	bun --cwd client install
+	bun install --cwd client 
 	@echo "▶  tee-worker …"
-	bun --cwd tee-worker install
-	@echo "▶  contracts …"
-	forge install --root contracts
+	bun install --cwd tee-worker 
+	# @echo "▶  contracts …"
+	# forge install ./contracts
 	@echo "✓  all deps installed"
 
 # ── Build ─────────────────────────────────────────────────────────────────────
 build:
 	@echo "▶  client (Next.js) …"
-	bun --cwd client run build
-	@echo "▶  contracts (forge) …"
-	forge build --root contracts
+	bun run --cwd client build
+	# @echo "▶  contracts (forge) …"
+	# forge build ./contracts
 	@echo "✓  build complete"
 
 # ── Dev ───────────────────────────────────────────────────────────────────────
@@ -32,8 +32,8 @@ build:
 dev:
 	@trap 'kill 0' INT; \
 	phala simulator start & \
-	bun --cwd tee-worker run dev & \
-	bun --cwd client run dev & \
+	bun run --cwd tee-worker dev & \
+	bun run --cwd client dev & \
 	wait
 
 # ── Demo server ───────────────────────────────────────────────────────────────
@@ -45,8 +45,8 @@ demo:
 prod:
 	@trap 'kill 0' INT; \
 	phala simulator start & \
-	bun --cwd tee-worker run start & \
-	bun --cwd client run start & \
+	bun run --cwd tee-worker start & \
+	bun run --cwd client start& \
 	wait
 
 # ── Help ──────────────────────────────────────────────────────────────────────
