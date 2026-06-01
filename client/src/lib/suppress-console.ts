@@ -13,7 +13,7 @@ export function suppressThirdPartyConsoleNoise(): void {
 
   const SUPPRESSED = [
     "Unable to fetch token price",
-    'React does not recognize the `isActive` prop',
+    'React does not recognize the `%s` prop',
   ];
 
   const originalError = console.error.bind(console);
