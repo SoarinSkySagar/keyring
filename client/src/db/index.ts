@@ -1,18 +1,10 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { neon } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-http";
 import * as schema from "./schema";
 
-// Use postgres.js with the pooler URL (PgBouncer).
-// max:1 — serverless: each function invocation gets one connection,
-//          returned immediately; prevents pool exhaustion across cold starts.
-// channel_binding is stripped — PgBouncer doesn't support SCRAM-SHA-256-PLUS.
-const dbUrl = (process.env.DATABASE_URL ?? "").replace(/[&?]channel_binding=[^&]*/g, "");
+// Neon HTTP driver — sends queries over HTTPS (port 443) instead of TCP
+// PostgreSQL protocol (port 5432). Works in Docker, serverless, and any
+// environment where port 5432 may be blocked.
+const sql = neon(process.env.DATABASE_URL!);
 
-const client = postgres(dbUrl, {
-  max: 1,
-  connect_timeout: 30,  // wait up to 30s for Neon to wake from auto-suspend
-  idle_timeout: 20,
-  max_lifetime: 1800,
-});
-
-export const db = drizzle(client, { schema });
+export const db = drizzle(sql, { schema });
