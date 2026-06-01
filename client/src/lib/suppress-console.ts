@@ -18,14 +18,14 @@ export function suppressThirdPartyConsoleNoise(): void {
 
   const originalError = console.error.bind(console);
   console.error = (...args: unknown[]) => {
-    const msg = String(args[0] ?? "");
+    const msg = args.map((a) => String(a ?? "")).join(" ");
     if (SUPPRESSED.some((s) => msg.includes(s))) return;
     originalError(...args);
   };
 
   const originalWarn = console.warn.bind(console);
   console.warn = (...args: unknown[]) => {
-    const msg = String(args[0] ?? "");
+    const msg = args.map((a) => String(a ?? "")).join(" ");
     if (SUPPRESSED.some((s) => msg.includes(s))) return;
     originalWarn(...args);
   };
