@@ -4,28 +4,28 @@
 # --root flags so the working directory never changes and the single root .env
 # is picked up automatically.
 #
-# Requirements: bun ≥1.2  |  forge (Foundry)  |  phala CLI
+# Requirements: bun ≥1.2  |  forge (Foundry)
 
 .PHONY: install build dev demo prod help
 
 # ── Install ───────────────────────────────────────────────────────────────────
 install:
-	@echo "▶  client …"
+	@echo " ▶  client … "
 	bun install --cwd client 
-	@echo "▶  tee-worker …"
+	@echo " ▶  tee-worker … "
 	bun install -g phala
 	bun install --cwd tee-worker 
-	# @echo "▶  contracts …"
+	# @echo " ▶  contracts … "
 	# forge install ./contracts
-	@echo "✓  all deps installed"
+	@echo " ✓  all deps installed "
 
 # ── Build ─────────────────────────────────────────────────────────────────────
 build:
-	@echo "▶  client (Next.js) …"
+	@echo " ▶  client (Next.js) … "
 	bun run --cwd client build
-	# @echo "▶  contracts (forge) …"
+	# @echo " ▶  contracts (forge) … "
 	# forge build ./contracts
-	@echo "✓  build complete"
+	@echo " ✓  build complete "
 
 # ── Dev ───────────────────────────────────────────────────────────────────────
 # Starts all three services in one process group.

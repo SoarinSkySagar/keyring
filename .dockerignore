@@ -1,0 +1,30 @@
+# ── Version control ───────────────────────────────────────────────────────────
+.git
+.gitmodules
+
+# ── Secrets — never bake into image; inject at runtime via --env-file ─────────
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+
+# ── Contracts — deployed on-chain, not needed at runtime ──────────────────────
+contracts/
+
+# ── Agent / team files ────────────────────────────────────────────────────────
+llms-full.txt
+HANDOFF.md
+README.md
+docs/
+.claude/
+.superpowers/
+tee-worker/README.md
+
+# ── Dependencies and build output — installed fresh inside the image ──────────
+**/node_modules/
+client/.next/
+tee-worker/dist/
+
+# ── Misc ──────────────────────────────────────────────────────────────────────
+**/*.log
