@@ -49,7 +49,8 @@ RUN make build
 
 # ─── Runtime defaults ─────────────────────────────────────────────────────────
 ENV NODE_ENV=production
-ENV PORT=3001
+# PORT is intentionally not set here — tee-worker reads PORT=3001 from the
+# injected .env, and the Makefile pins PORT=3000 for the Next.js client.
 
 EXPOSE 3000 3001
 

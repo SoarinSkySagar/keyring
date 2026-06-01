@@ -33,7 +33,7 @@ dev:
 	@trap 'kill 0' INT; \
 	phala simulator start & \
 	bun run --cwd tee-worker dev & \
-	bun run --cwd client dev & \
+	PORT=3000 bun run --cwd client dev & \
 	wait
 
 # ── Demo server ───────────────────────────────────────────────────────────────
@@ -46,7 +46,7 @@ prod:
 	@trap 'kill 0' INT; \
 	phala simulator start & \
 	bun run --cwd tee-worker start & \
-	bun run --cwd client start& \
+	PORT=3000 bun run --cwd client start & \
 	wait
 
 # ── Help ──────────────────────────────────────────────────────────────────────
