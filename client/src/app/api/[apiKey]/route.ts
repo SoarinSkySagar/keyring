@@ -47,15 +47,19 @@ function checkRateLimit(
 
 // ── Call recorder ────────────────────────────────────────────────
 
-function recordCall(
+// Awaited before every return — the idle_timeout on the Neon connection is
+// 20s, but CDR unlock can take 90s, so a fire-and-forget insert would hit a
+// dead connection and be swallowed silently. Awaiting costs <100ms and ensures
+// the row lands before the response is sent.
+async function recordCall(
   userId: string,
   method: string,
   path: string,
   status: number,
   latencyMs: number,
-  agentId?: string          // internal agents.id — undefined for GET / failures before agent lookup
+  agentId?: string
 ) {
-  db.insert(apiCalls)
+  await db.insert(apiCalls)
     .values({ id: randomUUID(), userId, agentId: agentId ?? null, path, method, status, latencyMs })
     .catch((err) => console.error("[api-calls] log failed", err));
 }
@@ -94,7 +98,7 @@ async function handle(
   });
 
   if (!allowed) {
-    recordCall(user.id, request.method, subPath, 429, Date.now() - start);
+    await recordCall(user.id, request.method, subPath, 429, Date.now() - start);
     return Response.json(
       { error: "Rate limit exceeded" },
       { status: 429, headers: { "Retry-After": String(retryAfter ?? 60) } }
@@ -110,14 +114,14 @@ async function handle(
       const text = await request.text();
       if (text) body = JSON.parse(text);
     } catch {
-      recordCall(user.id, request.method, subPath, 400, Date.now() - start);
+      await recordCall(user.id, request.method, subPath, 400, Date.now() - start);
       return Response.json({ error: "Request body must be valid JSON" }, { status: 400 });
     }
 
     // ── Check 3: agentId ───────────────────────────────────────
     const agentKey = body.agentId as string | undefined;
     if (!agentKey) {
-      recordCall(user.id, request.method, subPath, 401, Date.now() - start);
+      await recordCall(user.id, request.method, subPath, 401, Date.now() - start);
       return Response.json({ error: "agentId is required" }, { status: 401 });
     }
 
@@ -127,7 +131,7 @@ async function handle(
     });
 
     if (!agent || agent.status !== "active") {
-      recordCall(user.id, request.method, subPath, 401, Date.now() - start);
+      await recordCall(user.id, request.method, subPath, 401, Date.now() - start);
       return Response.json({ error: "Agent not recognised" }, { status: 401 });
     }
 
@@ -136,13 +140,13 @@ async function handle(
     // ── Check 4: secretsRequested ─────────────────────────────
     const secretsRequested = body.secretsRequested as string[] | undefined;
     if (!Array.isArray(secretsRequested) || secretsRequested.length === 0) {
-      recordCall(user.id, request.method, subPath, 400, Date.now() - start, resolvedAgentId);
+      await recordCall(user.id, request.method, subPath, 400, Date.now() - start, resolvedAgentId);
       return Response.json({ error: "secretsRequested must be a non-empty array" }, { status: 400 });
     }
 
     const denied = secretsRequested.filter((s) => !agent.allowedSecrets.includes(s));
     if (denied.length > 0) {
-      recordCall(user.id, request.method, subPath, 403, Date.now() - start, resolvedAgentId);
+      await recordCall(user.id, request.method, subPath, 403, Date.now() - start, resolvedAgentId);
       return Response.json(
         { error: `Secret not allowed for this agent: ${denied.join(", ")}` },
         { status: 403 }
@@ -155,7 +159,7 @@ async function handle(
       (body.operationRequested as string | undefined) ??
       (body.taskRequested as string | undefined);
     if (!operationRequested || typeof operationRequested !== "string") {
-      recordCall(user.id, request.method, subPath, 400, Date.now() - start, resolvedAgentId);
+      await recordCall(user.id, request.method, subPath, 400, Date.now() - start, resolvedAgentId);
       return Response.json({ error: "operationRequested is required" }, { status: 400 });
     }
 
@@ -163,7 +167,7 @@ async function handle(
     const unlockResult = await unlockVaults(user.id, agent.agentKey, secretsRequested);
 
     if (Object.keys(unlockResult.errors).length > 0) {
-      recordCall(user.id, request.method, subPath, 502, Date.now() - start, resolvedAgentId);
+      await recordCall(user.id, request.method, subPath, 502, Date.now() - start, resolvedAgentId);
       return Response.json({ ok: false, errors: unlockResult.errors }, { status: 502 });
     }
 
@@ -177,13 +181,13 @@ async function handle(
 
     // No task object → just confirm unlock (backward compat / debug)
     if (!task) {
-      recordCall(user.id, request.method, subPath, 200, Date.now() - start, resolvedAgentId);
+      await recordCall(user.id, request.method, subPath, 200, Date.now() - start, resolvedAgentId);
       return Response.json({ ok: true, secrets: unlockResult.secrets }, { status: 200 });
     }
 
     const teeUrl = process.env.TEE_WORKER_URL;
     if (!teeUrl) {
-      recordCall(user.id, request.method, subPath, 502, Date.now() - start, resolvedAgentId);
+      await recordCall(user.id, request.method, subPath, 502, Date.now() - start, resolvedAgentId);
       return Response.json({ ok: false, error: "TEE worker not configured" }, { status: 502 });
     }
 
@@ -213,7 +217,7 @@ async function handle(
       });
       if (!teeRes.ok) {
         const detail = (await teeRes.text().catch(() => "")).slice(0, 300);
-        recordCall(user.id, request.method, subPath, 502, Date.now() - start, resolvedAgentId);
+        await recordCall(user.id, request.method, subPath, 502, Date.now() - start, resolvedAgentId);
         return Response.json(
           { ok: false, error: `TEE worker error (${teeRes.status})`, detail },
           { status: 502 }
@@ -221,7 +225,7 @@ async function handle(
       }
       tee = (await teeRes.json()) as TeeResult;
     } catch (err) {
-      recordCall(user.id, request.method, subPath, 502, Date.now() - start, resolvedAgentId);
+      await recordCall(user.id, request.method, subPath, 502, Date.now() - start, resolvedAgentId);
       return Response.json(
         { ok: false, error: `TEE worker unreachable: ${err instanceof Error ? err.message : err}` },
         { status: 502 }
@@ -237,19 +241,19 @@ async function handle(
 
     // Policy judge could not render a verdict → fail closed (502)
     if (tee.judgeError) {
-      recordCall(user.id, request.method, subPath, 502, Date.now() - start, resolvedAgentId);
+      await recordCall(user.id, request.method, subPath, 502, Date.now() - start, resolvedAgentId);
       return Response.json({ ok: false, error: `Policy check failed: ${tee.reason}` }, { status: 502 });
     }
 
     // Policy denied the operation → 403
     if (!tee.allowed) {
-      recordCall(user.id, request.method, subPath, 403, Date.now() - start, resolvedAgentId);
+      await recordCall(user.id, request.method, subPath, 403, Date.now() - start, resolvedAgentId);
       return Response.json({ ok: false, allowed: false, reason: tee.reason }, { status: 403 });
     }
 
     // Allowed, but the upstream call itself failed inside the enclave → 502
     if (tee.executionError) {
-      recordCall(user.id, request.method, subPath, 502, Date.now() - start, resolvedAgentId);
+      await recordCall(user.id, request.method, subPath, 502, Date.now() - start, resolvedAgentId);
       return Response.json(
         { ok: false, allowed: true, reason: tee.reason, error: tee.executionError },
         { status: 502 }
@@ -257,7 +261,7 @@ async function handle(
     }
 
     // Allowed and executed → 200
-    recordCall(user.id, request.method, subPath, 200, Date.now() - start, resolvedAgentId);
+    await recordCall(user.id, request.method, subPath, 200, Date.now() - start, resolvedAgentId);
     return Response.json(
       {
         ok: true,
@@ -272,7 +276,7 @@ async function handle(
   }
 
   // ── GET: just confirm key is valid ────────────────────────────
-  recordCall(user.id, request.method, subPath, 200, Date.now() - start, resolvedAgentId);
+  await recordCall(user.id, request.method, subPath, 200, Date.now() - start, resolvedAgentId);
   return Response.json({ ok: true, userId: user.id }, { status: 200 });
 }
 

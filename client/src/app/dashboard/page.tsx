@@ -6,6 +6,9 @@ import { RecentCallsTable } from "@/components/dashboard/recent-calls-table";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { getUsageStatsAction } from "@/actions/stats";
 
+// Always fetch fresh data — never serve a cached render of the overview.
+export const dynamic = "force-dynamic";
+
 export default async function DashboardPage() {
   const user = await getCurrentUser();
   const firstName =
