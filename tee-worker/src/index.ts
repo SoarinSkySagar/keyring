@@ -1,6 +1,6 @@
 import { createApp } from "./server";
 
-const port = Number(process.env.PORT ?? 3001);
+const port = Number(process.env.TEE_PORT ?? 3001);
 
 createApp().listen(port, () => {
   const mode = process.env.DSTACK_SIMULATOR_ENDPOINT ? "simulator" : "enclave";
