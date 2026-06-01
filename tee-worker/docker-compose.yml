@@ -1,0 +1,18 @@
+# Phala Cloud app-compose for the Keyring TEE worker.
+#
+# Phala provisions the TDX enclave, mounts the real dstack socket, and handles
+# attestation + networking. Set GEMINI_API_KEY as an encrypted env var in the
+# Phala Cloud dashboard when deploying. Do NOT set DSTACK_SIMULATOR_ENDPOINT in
+# production — leaving it unset makes the SDK use the mounted /var/run/dstack.sock.
+services:
+  tee-worker:
+    image: docker.io/YOUR_DOCKERHUB_USER/keyring-tee-worker:latest
+    ports:
+      - "3001:3001"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=gemini-flash-latest
+      - PORT=3001
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock
+    restart: unless-stopped

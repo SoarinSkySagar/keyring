@@ -1,1 +1,9 @@
 .superpowers/
+
+# Secrets — never commit
+.env
+**/.env
+
+# Dependencies / build output
+**/node_modules/
+tee-worker/dist/
