@@ -123,7 +123,7 @@ async function handle(
 
     const agent = await db.query.agents.findFirst({
       where: and(eq(agents.agentKey, agentKey), eq(agents.userId, user.id)),
-      columns: { id: true, agentKey: true, allowedSecrets: true, status: true },
+      columns: { id: true, agentKey: true, allowedSecrets: true, status: true, policy: true },
     });
 
     if (!agent || agent.status !== "active") {
@@ -149,9 +149,14 @@ async function handle(
       );
     }
 
-    if (!body.taskRequested || typeof body.taskRequested !== "string") {
+    // operationRequested: the natural-language description the TEE judge rules
+    // on. (taskRequested accepted as a backward-compatible alias.)
+    const operationRequested =
+      (body.operationRequested as string | undefined) ??
+      (body.taskRequested as string | undefined);
+    if (!operationRequested || typeof operationRequested !== "string") {
       recordCall(user.id, request.method, subPath, 400, Date.now() - start, resolvedAgentId);
-      return Response.json({ error: "taskRequested is required" }, { status: 400 });
+      return Response.json({ error: "operationRequested is required" }, { status: 400 });
     }
 
     // ── Unlock CDR vaults ─────────────────────────────────────
@@ -162,7 +167,7 @@ async function handle(
       return Response.json({ ok: false, errors: unlockResult.errors }, { status: 502 });
     }
 
-    // ── TEE: execute the HTTP task with secrets injected ──────
+    // ── Forward to the TEE worker: judge policy, then execute ──
     const task = body.task as {
       method: string;
       url: string;
@@ -170,63 +175,97 @@ async function handle(
       body?: string | null;
     } | undefined;
 
-    // If no task object provided, just confirm unlock (backward compat)
+    // No task object → just confirm unlock (backward compat / debug)
     if (!task) {
       recordCall(user.id, request.method, subPath, 200, Date.now() - start, resolvedAgentId);
       return Response.json({ ok: true, secrets: unlockResult.secrets }, { status: 200 });
     }
 
-    // Inject secrets: replace {{SECRET_NAME}} placeholders in url, headers, body
-    function inject(template: string): string {
-      return template.replace(/\{\{(\w+)\}\}/g, (_, key) =>
-        unlockResult.secrets[key] ?? `{{${key}}}`
-      );
+    const teeUrl = process.env.TEE_WORKER_URL;
+    if (!teeUrl) {
+      recordCall(user.id, request.method, subPath, 502, Date.now() - start, resolvedAgentId);
+      return Response.json({ ok: false, error: "TEE worker not configured" }, { status: 502 });
     }
 
-    const resolvedUrl = inject(task.url);
-    const resolvedHeaders: Record<string, string> = {};
-    for (const [k, v] of Object.entries(task.headers ?? {})) {
-      resolvedHeaders[k] = inject(v);
-    }
-    const resolvedBody = task.body ? inject(task.body) : undefined;
-
-    // Execute the HTTP request inside the TEE
-    let taskResponse: Response;
+    // The decrypted secrets are sent to the enclave, which runs the AI policy
+    // judge (secrets shown to it only as placeholders) and, if allowed, injects
+    // the real values and executes the call — all inside the TEE.
+    type TeeResult = {
+      allowed: boolean;
+      reason: string;
+      judgeError?: boolean;
+      taskStatus?: number;
+      taskResponse?: unknown;
+      executionError?: string;
+      attestation?: unknown;
+    };
+    let tee: TeeResult;
     try {
-      taskResponse = await fetch(resolvedUrl, {
-        method: task.method.toUpperCase(),
-        headers: resolvedHeaders,
-        ...(resolvedBody ? { body: resolvedBody } : {}),
+      const teeRes = await fetch(teeUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          policy: agent.policy,
+          operationRequested,
+          task,
+          secrets: unlockResult.secrets,
+        }),
       });
+      if (!teeRes.ok) {
+        const detail = (await teeRes.text().catch(() => "")).slice(0, 300);
+        recordCall(user.id, request.method, subPath, 502, Date.now() - start, resolvedAgentId);
+        return Response.json(
+          { ok: false, error: `TEE worker error (${teeRes.status})`, detail },
+          { status: 502 }
+        );
+      }
+      tee = (await teeRes.json()) as TeeResult;
     } catch (err) {
       recordCall(user.id, request.method, subPath, 502, Date.now() - start, resolvedAgentId);
       return Response.json(
-        { ok: false, error: `Task HTTP request failed: ${err instanceof Error ? err.message : err}` },
+        { ok: false, error: `TEE worker unreachable: ${err instanceof Error ? err.message : err}` },
         { status: 502 }
       );
     }
 
-    let taskBody: unknown;
-    const contentType = taskResponse.headers.get("content-type") ?? "";
-    if (contentType.includes("application/json")) {
-      taskBody = await taskResponse.json().catch(() => null);
-    } else {
-      taskBody = await taskResponse.text().catch(() => null);
+    console.log(
+      `[Keyring] ${tee.allowed ? "ALLOW" : "DENY"} agent=${agentKey.slice(0, 12)}… ` +
+        `op="${operationRequested}" → ${task.method.toUpperCase()} ${task.url}` +
+        (tee.judgeError ? " (judge-error)" : "") +
+        (tee.executionError ? " (exec-error)" : "")
+    );
+
+    // Policy judge could not render a verdict → fail closed (502)
+    if (tee.judgeError) {
+      recordCall(user.id, request.method, subPath, 502, Date.now() - start, resolvedAgentId);
+      return Response.json({ ok: false, error: `Policy check failed: ${tee.reason}` }, { status: 502 });
     }
 
-    console.log("\n╔══ [Keyring TEE] Task Executed ═══════════════════════════");
-    console.log(`║  Agent:   ${agentKey.slice(0, 20)}…`);
-    console.log(`║  Task:    ${body.taskRequested}`);
-    console.log(`║  → ${task.method.toUpperCase()} ${resolvedUrl}`);
-    console.log(`║  ← ${taskResponse.status} ${taskResponse.statusText}`);
-    console.log("╚══════════════════════════════════════════════════════════\n");
+    // Policy denied the operation → 403
+    if (!tee.allowed) {
+      recordCall(user.id, request.method, subPath, 403, Date.now() - start, resolvedAgentId);
+      return Response.json({ ok: false, allowed: false, reason: tee.reason }, { status: 403 });
+    }
 
+    // Allowed, but the upstream call itself failed inside the enclave → 502
+    if (tee.executionError) {
+      recordCall(user.id, request.method, subPath, 502, Date.now() - start, resolvedAgentId);
+      return Response.json(
+        { ok: false, allowed: true, reason: tee.reason, error: tee.executionError },
+        { status: 502 }
+      );
+    }
+
+    // Allowed and executed → 200
     recordCall(user.id, request.method, subPath, 200, Date.now() - start, resolvedAgentId);
     return Response.json(
       {
         ok: true,
-        taskStatus: taskResponse.status,
-        taskResponse: taskBody,
+        allowed: true,
+        reason: tee.reason,
+        taskStatus: tee.taskStatus,
+        taskResponse: tee.taskResponse,
+        attestation: tee.attestation,
       },
       { status: 200 }
     );
