@@ -59,8 +59,8 @@ export const getCurrentUser = cache(async () => {
       const email = privyUser.email?.address ?? privyUser.google?.email ?? null;
       const name = privyUser.google?.name ?? null;
       return await findOrCreateUser(privyUser.id, email, name);
-    } catch {
-      // fall through to next strategy
+    } catch (err) {
+      console.error("[privy] idToken strategy failed:", err);
     }
   }
 
@@ -82,8 +82,8 @@ export const getCurrentUser = cache(async () => {
       const email = privyUser.email?.address ?? privyUser.google?.email ?? null;
       const name = privyUser.google?.name ?? null;
       return await findOrCreateUser(privyId, email, name);
-    } catch {
-      // fall through
+    } catch (err) {
+      console.error("[privy] accessToken strategy failed:", err);
     }
   }
 
