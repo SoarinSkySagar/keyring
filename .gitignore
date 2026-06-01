@@ -1,7 +1,10 @@
 .superpowers/
 
-# Secrets — only ignore the real root .env; symlinks in subdirs are tracked
+# Secrets — root .env and any .env.* variants (e.g. .env.docker)
+# Symlinks in subdirs (client/.env, tee-worker/.env) are tracked intentionally.
 /.env
+/.env.*
+!/.env.example
 
 # Dependencies / build output
 **/node_modules/

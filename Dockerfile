@@ -20,6 +20,8 @@ FROM oven/bun:1
 # phala@1.1.19 is pinned so the simulator socket path never changes between builds.
 RUN apt-get update && apt-get install -y make wget && rm -rf /var/lib/apt/lists/*
 RUN bun install -g phala@1.1.19
+RUN phala simulator start
+RUN phala simulator stop
 
 WORKDIR /app
 
