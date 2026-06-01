@@ -180,7 +180,7 @@ export async function unlockVaults(
         const { dataKey } = await cdrClient.consumer.accessCDR({
           uuid: row.cdrVaultUuid,
           accessAuxData: "0x",
-          timeoutMs: 90_000,
+          timeoutMs: 180_000,
         });
 
         result.secrets[name] = new TextDecoder().decode(dataKey);

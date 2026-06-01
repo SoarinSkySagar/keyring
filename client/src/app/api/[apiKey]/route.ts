@@ -5,8 +5,8 @@ import { users, agents, apiCalls } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { unlockVaults } from "@/lib/unlock-vault";
 
-// Allow up to 120s — CDR decryption polls for validator partials
-export const maxDuration = 120;
+// Allow up to 300s — CDR decryption can take up to 180s on Pimlico free tier
+export const maxDuration = 300;
 
 // ── In-memory sliding-window rate limiter ────────────────────────
 
