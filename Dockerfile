@@ -16,8 +16,10 @@
 
 FROM oven/bun:1
 
-# make is the only extra package needed to run Makefile targets.
+# make is needed to run Makefile targets.
+# phala@1.1.19 is pinned so the simulator socket path never changes between builds.
 RUN apt-get update && apt-get install -y make && rm -rf /var/lib/apt/lists/*
+RUN bun install -g phala@1.1.19
 
 WORKDIR /app
 
@@ -33,12 +35,12 @@ ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 ENV NEXT_PUBLIC_KEYRING_FACTORY_ADDRESS=$NEXT_PUBLIC_KEYRING_FACTORY_ADDRESS
 
 # ─── Source code only (no node_modules, no .env, no build output) ─────────────
-COPY Makefile demo-server.js ./
+COPY Makefile ./
 COPY client/ client/
 COPY tee-worker/ tee-worker/
 
 # ─── Install all dependencies ─────────────────────────────────────────────────
-# Installs: client (bun), tee-worker (bun), phala CLI (bun global)
+# Installs: client (bun), tee-worker (bun)
 RUN make install
 
 # ─── Build ────────────────────────────────────────────────────────────────────

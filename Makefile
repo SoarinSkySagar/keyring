@@ -13,8 +13,7 @@ install:
 	@echo " ▶  client … "
 	bun install --cwd client 
 	@echo " ▶  tee-worker … "
-	bun install -g phala
-	bun install --cwd tee-worker 
+	bun install --cwd tee-worker
 	# @echo " ▶  contracts … "
 	# forge install ./contracts
 	@echo " ✓  all deps installed "
