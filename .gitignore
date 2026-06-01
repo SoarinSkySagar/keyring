@@ -1,8 +1,7 @@
 .superpowers/
 
-# Secrets — never commit
-.env
-**/.env
+# Secrets — only ignore the real root .env; symlinks in subdirs are tracked
+/.env
 
 # Dependencies / build output
 **/node_modules/
