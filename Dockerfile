@@ -18,7 +18,7 @@ FROM oven/bun:1
 
 # make is needed to run Makefile targets.
 # phala@1.1.19 is pinned so the simulator socket path never changes between builds.
-RUN apt-get update && apt-get install -y make && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y make wget && rm -rf /var/lib/apt/lists/*
 RUN bun install -g phala@1.1.19
 
 WORKDIR /app
