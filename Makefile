@@ -31,7 +31,7 @@ build:
 # Ctrl-C kills everything cleanly via the trap.
 dev:
 	@trap 'kill 0' INT; \
-	[ -n "$$DSTACK_SIMULATOR_ENDPOINT" ] && phala simulator start & \
+	phala simulator start & \
 	bun run --cwd tee-worker dev & \
 	PORT=3000 bun run --cwd client dev & \
 	wait
@@ -42,11 +42,9 @@ demo:
 
 # ── Production ────────────────────────────────────────────────────────────────
 # Run `make build` first. Starts the built output — no hot reload.
-# On Phala Cloud leave DSTACK_SIMULATOR_ENDPOINT unset — the real TDX socket
-# is mounted at /var/run/dstack.sock and the simulator must not run alongside it.
 prod:
 	@trap 'kill 0' INT; \
-	[ -n "$$DSTACK_SIMULATOR_ENDPOINT" ] && phala simulator start & \
+	phala simulator start & \
 	bun run --cwd tee-worker start & \
 	PORT=3000 bun run --cwd client start & \
 	wait
